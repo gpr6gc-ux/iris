@@ -1710,3 +1710,27 @@ td.good, .num.good, span.good { color: var(--good-ink); }
   .feed-when { white-space: normal; }
   .feed-bits { grid-column: 1 / -1; white-space: normal; }
 }
+
+/* ===== Investing — change queue + upcoming catalysts (2026-09-16) ===== */
+.chg-list { display: flex; flex-direction: column; gap: 6px; }
+.chg-row { display: grid; grid-template-columns: minmax(220px, 300px) 1fr auto; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); cursor: pointer; transition: border-color var(--t-fast); }
+.chg-row:hover { border-color: var(--border-strong); }
+.chg-l { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chg-sym { font-weight: 700; }
+.chg-conv { font-size: 12px; font-variant-numeric: tabular-nums; }
+.chg-conv.long { color: var(--good-ink); } .chg-conv.short { color: var(--sev-high-ink); }
+.chg-mid { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); font-size: 12.5px; }
+.chg-r { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.cat-list { display: flex; flex-direction: column; gap: 4px; }
+.cat-row { display: grid; grid-template-columns: 110px auto auto 1fr; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.cat-row:last-child { border-bottom: 0; }
+.cat-when { color: var(--foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-tk { font-weight: 700; }
+.cat-h { color: var(--muted-foreground); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  .chg-row { grid-template-columns: 1fr; gap: 4px; }
+  .chg-mid { white-space: normal; }
+  .chg-r { flex-wrap: wrap; }
+  .cat-row { grid-template-columns: 96px auto 1fr; }
+  .cat-h { grid-column: 1 / -1; white-space: normal; }
+}

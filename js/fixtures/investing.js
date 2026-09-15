@@ -177,3 +177,23 @@ export const investingSecurity = (args) => {
     history: closes.map((c, i) => ({ d: `2026-0${1 + Math.floor(i / 40)}-${(i % 28) + 1}`, c })),
   });
 };
+
+// iris2_investing_queue(p_since_sessions) — the change queue + upcoming catalysts.
+export const investingQueue = () => ok({
+  as_of: '2026-09-11', window: { since_sessions: 3, from: '2026-09-08', to: '2026-09-11' },
+  items: [
+    { kind: 'direction', change: 'Flipped to short', symbol: 'LII', direction: 'short', conviction: 78, at: '2026-09-11T20:10:00Z', as_of: '2026-09-11', price_state: 'LAST_SESSION',
+      card: card({ symbol: 'LII', name: 'LENNOX INTERNATIONAL', posture: 'SHORT', direction: 'short', conviction: 78, close: 470, rsi: 35, pctb: 0.2, ret_1m: -0.08, ret_3m: -0.18, options: 'Put debit spread, or trim / avoid', headline: 'Below the 50 & 200-day with a death cross and weak momentum — short / avoid; invalidation above $505.00.', stop: 505, target: 400, risk_pct: 0.074, stop_basis: 'sma50', why: why(F('trend','Trend structure','Below the 50 & 200-day, death cross',-24), F('mom','Momentum (1m/3m)','Return -8% 1m · -18% 3m',-16), F('ma','Distance to 200-day','-9% below the 200-day',-8.6)) }) },
+    { kind: 'new', change: 'New long — first surfacing', symbol: 'ANF', direction: 'long', conviction: 85, at: '2026-09-11T20:10:00Z', as_of: '2026-09-11', price_state: 'LAST_SESSION',
+      card: card({ symbol: 'ANF', name: 'ABERCROMBIE & FITCH CO', posture: 'LONG', direction: 'long', conviction: 85, close: 136.6, rsi: 69, pctb: 0.76, ret_1m: 0.24, ret_3m: 0.79, options: 'Calls or call debit spreads', headline: 'Above the 50 & 200-day with positive momentum — constructive long; invalidation below $120.02.', stop: 120.02, target: 169.77, risk_pct: 0.121, stop_basis: 'sma20', why: why(F('mom','Momentum (1m/3m)','Return 24% 1m · 79% 3m',20), F('trend','Trend structure','Above the 50 & 200-day',19.2), F('val','Valuation overlay','P/S 1.4 · P/E 11.0 · profitable',12.1)) }) },
+    { kind: 'stale', change: 'Went stale — price feed 3 sessions behind', symbol: 'TSLA', direction: 'short', conviction: 25, at: '2026-09-11T08:00:00Z', as_of: '2026-09-08', price_state: 'STALE',
+      card: card({ symbol: 'TSLA', name: 'TESLA INC', posture: 'LEAN SHORT', direction: 'short', conviction: 25, close: 357.01, rsi: 44, pctb: 0.4, ret_1m: -0.04, ret_3m: -0.07, price_state: 'STALE', sessions_behind: 3, as_of: '2026-09-08', stop_basis: 'sma50', options: 'Put debit spread, or trim / avoid', headline: 'Below the 50 & 200-day and weak momentum — short / avoid; invalidation above $358.35.', stop: 358.35, target: 354.33, risk_pct: 0.004, why: why(F('trend','Trend structure','Below the 50 & 200-day',-19.2), F('ma','Distance to 200-day','-11% below the 200-day',-10), F('val','Valuation overlay','P/S 14.9 · P/E 371.6 · profitable',-6.4)) }) },
+  ],
+  items_note: 'Only names whose decision materially changed. Deterministic ranking — no model sets a rank.',
+  upcoming: [
+    { ticker: 'NVDA', kind: 'earnings', event_type: 'earnings_confirmed', headline: 'NVIDIA Q3 earnings (confirmed)', when_ts: '2026-09-24T20:20:00Z', when_et: 'Sep 24 16:20 ET', confirmed: true, source: 'nasdaq' },
+    { ticker: 'AAPL', kind: 'earnings', event_type: 'earnings_estimated', headline: 'Apple earnings (estimated window)', when_ts: '2026-09-29T20:00:00Z', when_et: 'Sep 29 16:00 ET', confirmed: false, source: 'estimate' },
+  ],
+  upcoming_note: 'Scheduled events for tracked/surfaced names; confirmed vs estimated marked; ET.',
+  theses_open: 0,
+});

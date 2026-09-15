@@ -160,6 +160,11 @@ function draw(d, host, reload) {
       (d.multidim_mode ? ` · multi-dim gate: ${d.multidim_mode === 'families' ? 'independent evidence families' : 'legacy factor count'}` : ''))],
     { flush: false, cls: 'f1' }));
 
+  // What changed — the prioritized change queue (deterministic ranking of material decision changes + catalysts).
+  const queueHost = h('div.stack');
+  host.append(queueHost);
+  loadChangeQueue(queueHost);
+
   host.append(regimeBanner(reg));
 
   if (stale) host.append(h('div.notice.warn', iconEl('alert'), h('span', h('b', 'Prices are stale. '), `Every decision below is computed from the ${feeds.prices && feeds.prices.as_of ? etDay(feeds.prices.as_of) : 'last loaded'} session and is not actionable until the feed catches up (${feeds.prices && feeds.prices.sessions_behind != null ? feeds.prices.sessions_behind + ' sessions behind' : 'feed not reporting'}).`)));
@@ -197,6 +202,61 @@ function draw(d, host, reload) {
   const posHost = h('div.stack');
   host.append(posHost);
   loadPositioning(posHost);
+}
+
+// ---- change queue (what materially changed) ---------------------------------
+function loadChangeQueue(host) {
+  load(host, 'iris2_investing_queue', { p_since_sessions: 3 }, renderChangeQueue, {
+    onError: () => { host.replaceChildren(); },
+  });
+}
+
+const changeTone = (kind) => (kind === 'direction' ? 'warn' : kind === 'unsurfaced' || kind === 'stale' ? 'bad' : 'good');
+
+function changeRow(it) {
+  const c = it.card || {};
+  const dir = dirClass(it.direction);
+  return h('div.chg-row.clickable', { tabindex: 0, onclick: () => openSecurity(it.symbol), onkeydown: (e) => { if (e.key === 'Enter') openSecurity(it.symbol); } },
+    h('div.chg-l',
+      pill(it.change || it.kind, `status ${changeTone(it.kind)} nodot`),
+      h('b.chg-sym', it.symbol),
+      c.conviction != null ? h('span.chg-conv.num', { class: dir }, `${c.posture || ''} ${it.conviction}`) : null),
+    h('div.chg-mid', c.headline || ''),
+    h('div.chg-r',
+      (it.price_state && it.price_state !== 'LAST_SESSION') ? statePill(it.kind === 'stale' ? 'STALE' : it.price_state) : null,
+      c.stop != null ? h('span.small.muted', `inval. ${fmt.money(c.stop)}`) : null));
+}
+
+function upcomingRow(u) {
+  return h('div.cat-row',
+    h('span.cat-when.num', u.when_et || '—'),
+    pill(u.confirmed ? 'confirmed' : 'estimated', `status ${u.confirmed ? 'good' : 'neutral'} nodot`),
+    u.ticker ? h('b.cat-tk', u.ticker) : null,
+    h('span.cat-h', u.headline || u.event_type || u.kind || ''));
+}
+
+function renderChangeQueue(d, host) {
+  const items = d.items || [];
+  const upcoming = d.upcoming || [];
+  const win = d.window || {};
+  const cards = [];
+  if (items.length) {
+    cards.push(h('div.chg-list', items.slice(0, 12).map(changeRow)));
+    if (items.length > 12) cards.push(h('div.small.muted', { style: { marginTop: '6px' } }, `+${items.length - 12} more changes in the last ${win.since_sessions || 3} sessions`));
+  } else {
+    cards.push(emptyState('Nothing changed', `No decision flipped, surfaced or went stale in the last ${win.since_sessions || 3} sessions. A quiet queue is a valid outcome.`));
+  }
+  host.append(card(
+    h('h2', 'What changed'),
+    h('span.hint-text', `${items.length} material changes · last ${win.since_sessions || 3} sessions · ranked`),
+    cards, { flush: false, cls: 'f1' }));
+
+  host.append(card(
+    h('h2', 'Upcoming catalysts'),
+    h('span.hint-text', 'scheduled events · next 21 days · ET · confirmed vs estimated'),
+    [upcoming.length ? h('div.cat-list', upcoming.map(upcomingRow))
+      : emptyState('No scheduled catalysts', 'No confirmed or estimated events in the next 21 days for the names you track or that are surfaced. Unscheduled announcements are never predicted here.')],
+    { flush: false, cls: 'f1' }));
 }
 
 // ---- dealer positioning (Lattice · Pulse · Vector) --------------------------
