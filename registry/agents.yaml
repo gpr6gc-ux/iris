@@ -1,0 +1,94 @@
+# Every agent, what it is for, and what it is allowed to spend. CI syncs this into the
+# database so the spend governor and the kill switch read the same list the UI shows.
+#
+# The audit of 15 September 2026 found this list wrong in both directions: 21 registered
+# agents had made zero calls in 30 days, and 9 agents were spending money without appearing
+# in brain.agents at all. Governance built on a wrong roster governs a fiction.
+#
+# Rule: an agent that has not run in 90 days is removed. An agent that spends must be here.
+
+agents:
+  # --- earning their place ---
+  - slug: modellens-review
+    project: modellens
+    purpose: Reviews Anaplan model metadata on request from ModelLens Web.
+    spend_30d_usd: 2.83
+    monthly_budget_usd: 10
+    status: keep
+
+  - slug: earnings-actuals
+    project: investing
+    purpose: Pulls earnings estimates and actuals for the watchlist.
+    spend_30d_usd: 1.23
+    monthly_budget_usd: 5
+    status: keep
+
+  - slug: reviewer
+    project: command
+    purpose: Judges pending claims — keeps only what changes what IRIS does or knows.
+    spend_30d_usd: 0.60
+    monthly_budget_usd: 5
+    status: keep
+
+  # --- under review ---
+  - slug: scout-craft
+    project: command
+    purpose: Scores GitHub and HN items for adoptability against the current stack.
+    spend_30d_usd: 25.07
+    calls_30d: 860
+    monthly_budget_usd: 30
+    status: review
+    question: >
+      67% of all LLM spend. It runs correctly. Has anything it surfaced ever changed a
+      decision? If not, cut the cadence hard or retire it.
+
+  - slug: prospecting-scout
+    project: mccourtai
+    purpose: Weekly hunt for companies who might pay.
+    spend_30d_usd: 2.19
+    monthly_budget_usd: 10
+    status: review
+    question: Near-duplicate of researcher-prospecting. Keep one.
+
+  - slug: researcher-prospecting
+    project: mccourtai
+    purpose: Unclear — one call, $3.10.
+    spend_30d_usd: 3.10
+    calls_30d: 1
+    status: review
+    question: What was that call? $3.10 for a single invocation is worth understanding.
+
+  # --- spending but unregistered until now ---
+  - slug: harvester
+    project: command
+    purpose: Reads adopted repos and extracts reusable artifacts into the brain.
+    spend_30d_usd: 1.60
+    status: register
+  - slug: careers-tailor
+    project: command
+    purpose: Tailors the resume against a filed job posting.
+    spend_30d_usd: 0.40
+    status: register
+  - slug: doc-digest
+    project: command
+    purpose: Structured breakdown of PDFs routed from the capture door.
+    spend_30d_usd: 0.08
+    status: register
+  - slug: studio-writer
+    project: revenue
+    purpose: Writes short-form video scripts.
+    spend_30d_usd: 0.03
+    status: register
+  - slug: agent-runner
+    project: command
+    purpose: Universal agent entry point.
+    spend_30d_usd: 0.01
+    status: register
+
+# Registered, zero calls in 30 days. Remove unless a specific plan needs them.
+# Listing them here rather than deleting silently keeps the decision reviewable.
+dormant_90d_candidates:
+  [analyst-invest, appeals-writer, ceo, chief-of-staff, claude-code, cost-analyst,
+   extractor-doc, firm-analyst, ingestor, n8n-architect, owner, personal-assistant,
+   prompt-smith, rcm-worker, researcher-outbound, revenue-engine, scout-news,
+   scout-payer, scout-work, solutions-architect, station-overseer]
