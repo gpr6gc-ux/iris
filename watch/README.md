@@ -27,6 +27,24 @@ CRWD · EXTENDED_WAIT · up
 Everything else identical. The stance changed because the entry did. That is the "combine news,
 chart and macro together" you asked for — as a table you can read, not a score you have to trust.
 
+## Two layers, both pure
+
+**`flow.mjs`** turns the options tape into the scorer's inputs: classifies each print against its
+contemporaneous NBBO (buy / sell / **unknown** — midpoint, stale quote, crossed book and late
+prints all stay unknown), reconciles duplicates, corrections and cancels, aggregates per name
+against that name's own baseline, computes 25-delta put skew from a chain snapshot, and returns
+a dealer-gamma sign **labelled as an estimate under a named inventory assumption**. If more than
+half the premium is unclassifiable it returns no directional read at all. 11 tests.
+
+It consumes IRIS's normalized print, never a vendor payload — the Massive → normalized mapping
+is Cowork's, in `sidecar/providers/`, verified against observed payloads. That boundary is why a
+vendor change never touches this file.
+
+**`score.mjs`** takes those numbers plus narrative, price, positioning and regime and returns
+the stance. 10 tests.
+
+Run both: `node --test watch/*.test.mjs`
+
 ## The rules, and where they live
 
 `score.mjs` is the whole decision. Pure function, no I/O, no model, 10 tests. Every threshold is
@@ -48,7 +66,7 @@ Three rules that will not bend:
 |---|---|---|---|
 | Narrative | mentions ÷ trailing baseline | Discord `#momentum-feed` (TweetShift relaying `registry/sources.yaml`), EDGAR 8-K, HN | **build** — Cowork |
 | Price | session / pre-market move, %B, RSI, bars | `inv.prices`, `market.technicals` | live |
-| Flow | call/put vol ÷ 20d, IV change, put-skew change | Massive Options Developer via `sidecar/providers/massive.js` | **awaiting key** |
+| Flow | call/put vol ÷ 20d, IV change, put-skew change, gex sign | **Massive Options Advanced** (real-time NBBO + trades + chains) → `flow.mjs` | **key in n8n; options mapping unwritten** |
 | Positioning | dealer gamma sign near spot | `market.positioning` (labelled estimate) | live |
 | Regime | NORMAL / STRESS / … | `market.regime` | live |
 
@@ -62,7 +80,11 @@ Three rules that will not bend:
   Nothing else. Store to `watch.mentions` with the tweet's own timestamp, not receipt time.
 - `narrative_velocity` per name per window vs that name's own trailing baseline — SQL.
 - Re-point Scout: Signals keywords at the universe instead of "agent tooling".
-- Flow aggregates from the Massive adapter once the key lands.
+- **Options provider mapping.** `sidecar/providers/massive.js` is the *stocks* socket. The
+  Options Advanced key drives a different one — trades and quotes per contract, plus REST chain
+  snapshots. First job: capture ~10 minutes of real payloads for three names into
+  `sidecar/fixtures/` as a replay fixture, then write the mapping to the normalized print that
+  `flow.mjs` expects. Nothing in `flow.mjs` should need to change.
 - Run `score()` in the sidecar on every material input change; alert via Pulse (email) and Discord
   when a name enters `CONFIRMED` or `EXTENDED_WAIT`, with cooldown so one story is one alert.
 
