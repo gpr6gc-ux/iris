@@ -37,10 +37,17 @@ agents:
     spend_30d_usd: 25.07
     calls_30d: 860
     monthly_budget_usd: 30
-    status: review
-    question: >
-      67% of all LLM spend. It runs correctly. Has anything it surfaced ever changed a
-      decision? If not, cut the cadence hard or retire it.
+    status: keep
+    owner_verdict: >
+      15 Sep 2026 — owner confirms it earns its place: useful for surfacing GitHub projects
+      worth adopting. Keep the capability; fix the cost shape, not the feature.
+    optimisation: >
+      860 calls is roughly one LLM call per item fetched, ~29/day — the cost scales with how
+      much it reads, not with how much is worth reading. Prefilter deterministically first
+      (pushed-this-week, stars, language, keyword against the registry doctrine) and score only
+      the survivors. Scoring 5 candidates instead of 29 keeps exactly what the owner values at
+      about a fifth of the spend. No model judgement is lost — the filter only removes rows the
+      model was going to score below the threshold anyway.
 
   - slug: prospecting-scout
     project: mccourtai

@@ -15,14 +15,18 @@ Confidence means:
 
 ## 1. Fix now — these are failing today
 
-87 errors in 7 days, and the two worst are the system's own safety net. Do these before any
-cleanup: right now three separate backup mechanisms are broken at once and the alarm that would
-tell you is one of them.
+87 errors in 7 days out of 17,021 executions — 0.5%, concentrated in a handful of workflows.
+
+**Correction, 15 Sep:** an earlier draft of this file said the nightly offsite brain backup was
+failing. It is not. **IRIS — Vault** `Pdrqau7Csp0XSTWe` runs daily at 06:30 and its last ten
+executions all succeeded. The ~34 errors belong to a different workflow, below. The n8n-side
+*workflow* backup is still dead (since 13 May, see `workflow-backups` PR #1) and the database
+is still unversioned, but the brain's offsite copy is intact.
 
 | Workflow | Errors/7d | Why it matters |
 |---|---|---|
-| **IRIS — Vault** `pD5LAyVVvEkZ5sLv` | ~34 | The nightly offsite brain backup. **It is failing.** With the n8n-side workflow backup dead since 13 May and 251 DB functions unversioned, this was the last copy. |
-| **IRIS — Gatekeeper** `3qK2w8ubMVvqQIwU` | ~6 | The hourly 17-probe suite whose entire job is to tell you when something breaks. It is the thing that broke. |
+| **IRIS — Harvester (continuous)** `pD5LAyVVvEkZ5sLv` | ~34 | The largest single error source. It is marked **`active: false`**, yet it fires on a clean 10-minute cadence and fails each time. It has both a schedule trigger and a webhook (`/webhook/iris-harvest-run`) and its own description says it "immediately re-triggers itself while work remains" — so the most likely reading is a self-retrigger loop that a disabled workflow cannot complete. **Verify before assuming:** a disabled workflow firing every 10 minutes is either a bug or something else is POSTing to that webhook. |
+| **IRIS — Gatekeeper** `3qK2w8ubMVvqQIwU` | ~6 | The hourly 17-probe suite whose entire job is to tell you when something breaks. It is itself breaking, so the alarm cannot be trusted right now. |
 | IRIS — Universal Crawler `cKtKbzqyRgCu1SgL` | ~12 | Source registry crawler |
 | IRIS — Earnings & 8-K Catalyst Feed `WGqH0xLUGDq2ZCkP` | ~12 | Investing feed |
 | IRIS — Careers Tailor `okDZrlCDGLwY1GK8` | ~6 | Also runs every 10 min — see §3 |
@@ -57,6 +61,21 @@ the behaviour is unchanged and latency improves.
 | IRIS — Careers Tailor `okDZrlCDGLwY1GK8` | 144 runs/day | Every 10 minutes to claim jobs *the owner filed manually*. Event-driven, or every 30–60 min, does the same work. |
 
 ---
+
+### Careful: "the scouts" are four different workflows
+
+The owner values macro news **and** GitHub project discovery. Those come from different places,
+and retiring the wrong one loses the thing that was meant to be kept:
+
+| Want | Comes from | LLM cost |
+|---|---|---|
+| GitHub projects worth adopting | **IRIS — Scout: Craft** `EFNKWw9PMsKt2UZG` (agent `scout-craft`) | high — §3 above |
+| Macro series (FRED, 10 series) | **IRIS — Market: Macro Daily** `x67We2CrO8FYwJuL` | **none** — deterministic |
+| HN + Anthropic news, 3-hourly | **IRIS — Scout: Signals** `Y9E3hBRETkUav0BQ` | low |
+| FINRA / EDGAR / CBOE sweep | **IRIS — Scout: Markets** `vKyqBywMGJglieGX` | low |
+
+Macro Daily costs nothing in model spend — it is a plain FRED fetch. Keep all four; only
+`scout-craft` needs the prefilter.
 
 ## 4. Archive — conclusive
 
@@ -137,7 +156,7 @@ is therefore governing a fiction. Fixing this is worth more than any single dele
 
 ## Order of work
 
-1. **Fix IRIS — Vault and IRIS — Gatekeeper.** Backups and the alarm, before anything else.
+1. **Stop the Harvester loop and fix IRIS — Gatekeeper.** A disabled workflow erroring every 10 minutes, and the alarm that is supposed to report breakage.
 2. **Replace the Discord poll with a webhook.** ~60% of executions, no behaviour change.
 3. **Archive §4** — 14 workflows, no checks needed.
 4. **Reconcile the agent registry** (§6) so spend caps mean something.
@@ -147,3 +166,6 @@ is therefore governing a fiction. Fixing this is worth more than any single dele
 
 Steps 1–4 remove roughly 60% of execution volume and 14 workflows without a single judgement
 call about whether something is useful.
+
+Every workflow ID in this file was cross-checked against the tenant listing on 15 Sep after one
+was found transcribed wrongly. If you find another mismatch, trust the tenant, not this file.
