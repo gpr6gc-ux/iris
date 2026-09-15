@@ -23,9 +23,24 @@ live system, or one agent assuming another has already done something. This tabl
 | This repository (`iris-investing`) | may push | no direct access | **owns** — pushes, PRs, CI |
 | `iris-investing.netlify.app` | — | — | deploys by pushing to `main` |
 
-**The one rule that overrides everything:** SQL reaches production only as a migration file
-that the owner applies after review. No agent applies one. If an MCP tool offers to apply a
-migration to the hosted project, decline it.
+**The one rule that overrides everything:** *every schema change reaches production as a
+migration file committed to this repository before it is applied.* No ad-hoc DDL in a console,
+by anyone, ever — the thing being prevented is a change to production that exists nowhere
+reviewable and cannot be reproduced or rolled back.
+
+**Who may apply one is a separate question, and the table above answers it.** Cowork operates the
+live project as the owner's hands and applies migrations directly. Claude Code and Codex do not,
+and decline when an MCP tool offers to.
+
+An earlier draft of this file said "no agent applies one," which contradicted the table and was
+wrong: it generalised a rule written from the Claude Code lane onto an agent that legitimately
+holds the owner's seat. Corrected 15 Sep 2026 after Cowork flagged the conflict.
+
+**Review timing is the owner's setting**, not a property of the rule. Today it is apply-then-
+review, which works only while every migration is additive and has a rollback. The proportionate
+version, and the recommendation: apply-then-review for additive changes; **review-before-apply
+for anything that changes permissions** — grants, RLS, role changes, or what a published artifact
+exposes. Those are the changes where the damage is done before anyone can read the diff.
 
 ## What each agent can actually run
 
@@ -68,10 +83,14 @@ RPC) goes to Cowork as a description of the change plus the migration file, neve
 
 Each of these cost someone real time.
 
-- **`.netlifyignore` is CLI-only.** Netlify's build system ignores it on a git-linked deploy.
-  `publish` must point at the output of `tools/build-site.sh`, never at the repo root, or
-  `supabase/investing/seed_investing.sql` — 4.6 MB of securities and fundamentals — is served
-  from the public web root.
+- **`.netlifyignore` is CLI-only — and this already happened.** Netlify's build system ignores
+  it. On 15 Sep 2026 `iris-command-5` was found serving its entire repository root publicly:
+  every SQL function definition, the 4.6 MB seed, the streaming adapter source, and the internal
+  `docs/` tree that this repo's own `.gitignore` says must "never enter a shared repository"
+  because it covers personal finances and security posture. Cowork fixed it by publishing an
+  assembled `dist/` instead of the root. **`publish` must never point at a repository root.**
+  Verified after the fact: the investing SQL and the workflow exports carried no credentials —
+  the exports were properly redacted. `docs/` was the real exposure.
 - **Migration filenames must sort into apply order.** Every runner, the Supabase CLI included,
   applies `*.sql` lexically. Two files sharing a date prefix will be applied alphabetically;
   that is how `20260915_research_outcomes.sql` ran before the migration that creates the table

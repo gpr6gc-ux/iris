@@ -19,6 +19,7 @@ wrong exactly — it just could not be seen all at once, and what cannot be seen
 | `workflows/` | n8n exports, one file per workflow |
 | `registry/projects.yaml` | Every project: repo, site, schemas, agents |
 | `registry/agents.yaml` | Every agent: purpose, spend, budget, status |
+| `CLEANUP.md` | The ledger — every open item, its owner, and the order to do them in |
 | `audit/` | The 15 Sep 2026 inventory and the retirement plan built from it |
 | `docs/` | `WORKING.md` — the agreement between Cowork, Codex and Claude Code |
 
@@ -38,6 +39,8 @@ this repo, never a home for a separate project.
 
 ## Start here
 
+- **`CLEANUP.md`** — the ledger. What is left, who owns it, in the order that makes each step
+  safe. Edit it in place as things land; it is the only file that knows the current state.
 - `audit/RETIREMENT.md` — what to switch off, in order, with the evidence for each
 - `audit/METHOD.md` — how that evidence was gathered and what it cannot prove
 - `docs/WORKING.md` — who owns which live system, and the rule that no agent writes to production
