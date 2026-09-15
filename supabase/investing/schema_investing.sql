@@ -483,3 +483,33 @@ create table market.underlyings (
   added_at timestamp with time zone not null default now(),
   primary key (symbol)
 );
+
+-- ---- Indexes and unique constraints (exported 2026-09-15). The upserts in functions_investing.sql depend on the
+-- unique ones (on conflict targets); the rest are the production performance indexes.
+CREATE UNIQUE INDEX catalysts_accession_item_uk ON inv.catalysts USING btree (accession, item_code) WHERE ((accession IS NOT NULL) AND (item_code IS NOT NULL));
+CREATE INDEX catalysts_event_type_idx ON inv.catalysts USING btree (event_type, filed_at DESC);
+CREATE INDEX catalysts_filed_at_idx ON inv.catalysts USING btree (filed_at DESC);
+CREATE UNIQUE INDEX catalysts_source_headline_at_uk ON inv.catalysts USING btree (source, headline, at) WHERE (accession IS NULL);
+CREATE INDEX catalysts_ticker_idx ON inv.catalysts USING btree (ticker) WHERE (ticker IS NOT NULL);
+CREATE INDEX ix_inv_cat_at ON inv.catalysts USING btree (at DESC);
+CREATE INDEX earnings_actuals_ticker_idx ON inv.earnings_actuals USING btree (ticker);
+CREATE INDEX earnings_estimates_report_idx ON inv.earnings_estimates USING btree (report_date);
+CREATE INDEX ix_inv_facts_cik ON inv.facts USING btree (cik, concept);
+CREATE INDEX ix_inv_fundamentals_computed_at ON inv.fundamentals USING btree (computed_at DESC);
+CREATE INDEX ix_inv_macro_d ON inv.macro USING btree (d DESC);
+CREATE UNIQUE INDEX mna_signals_accession_key ON inv.mna_signals USING btree (accession);
+CREATE INDEX ix_inv_prices_d ON inv.prices USING btree (d DESC);
+CREATE INDEX ix_inv_prices_t ON inv.prices USING btree (ticker, d DESC);
+CREATE INDEX screen_runs_name_at_idx ON inv.screen_runs USING btree (name, at DESC);
+CREATE INDEX ix_inv_sec_sic ON inv.securities USING btree (sic);
+CREATE INDEX ix_inv_sec_ticker ON inv.securities USING btree (ticker);
+CREATE INDEX backtest_runs_asof_idx ON market.backtest_runs USING btree (as_of DESC);
+CREATE INDEX backtest_runs_strategy_idx ON market.backtest_runs USING btree (strategy_id);
+CREATE UNIQUE INDEX chain_snapshots_symbol_as_of_key ON market.chain_snapshots USING btree (symbol, as_of);
+CREATE INDEX ix_market_snap_symbol_time ON market.chain_snapshots USING btree (symbol, as_of DESC);
+CREATE INDEX ix_mkt_dec_rank ON market.decisions USING btree (surfaced, direction, conviction DESC);
+CREATE INDEX ix_market_grid_symbol_time ON market.gamma_grid USING btree (symbol, as_of, expiry, strike);
+CREATE INDEX ix_market_signals_symbol_time ON market.signals USING btree (symbol, created_at DESC);
+CREATE UNIQUE INDEX uq_market_signals_dedupe ON market.signals USING btree (dedupe_key) WHERE (dedupe_key IS NOT NULL);
+CREATE UNIQUE INDEX strategies_key_key ON market.strategies USING btree (key);
+CREATE INDEX theme_symbols_symbol_idx ON market.theme_symbols USING btree (symbol);
