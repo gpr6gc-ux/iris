@@ -1688,3 +1688,25 @@ td.good, .num.good, span.good { color: var(--good-ink); }
 .st-howto { display: grid; gap: 10px; max-width: 72ch; font-size: 13.5px; line-height: 1.55; color: var(--foreground); }
 .st-howto p { margin: 0; }
 @media (max-width: 640px) { .st-hud-r { justify-items: start; } .st-ev { grid-template-columns: 6.5em minmax(0, 1fr); } .st-ev-actor, .st-ev-detail { grid-column: 2; } }
+
+/* ===== Investing — data status strip, price states, level provenance (2026-09-15) ===== */
+.feed-strip { display: flex; flex-direction: column; gap: 6px; }
+.feed-row { display: grid; grid-template-columns: 120px auto auto 1fr; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.feed-row:last-child { border-bottom: 0; }
+.feed-k { font-size: 12px; font-weight: 600; color: var(--foreground); }
+.feed-when { font-size: 12px; color: var(--foreground); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.feed-bits { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-counts { margin-top: 8px; font-variant-numeric: tabular-nums; }
+.dec-state { display: flex; align-items: center; gap: 6px; }
+.dec-card.is-stale { opacity: .72; border-left-color: var(--sev-medium-ink); }
+.dec-card.is-stale .conv-bar i { opacity: .5; }
+.dec-fam { margin-top: 2px; font-variant-numeric: tabular-nums; }
+.dd-idea { display: block; padding: 8px 10px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--muted-foreground); font-size: 12px; line-height: 1.5; }
+.dd-idea .ic { vertical-align: -2px; margin-right: 4px; }
+.dd-idea > span:first-of-type { color: var(--foreground); }
+.dd-outcomes { display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 640px) {
+  .feed-row { grid-template-columns: 84px auto 1fr; }
+  .feed-when { white-space: normal; }
+  .feed-bits { grid-column: 1 / -1; white-space: normal; }
+}

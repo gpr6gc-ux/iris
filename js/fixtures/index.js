@@ -11,7 +11,7 @@ import { projects } from './projects.js';
 import { modellens, modellensRun, modellensImportBundle } from './modellens.js';
 import { karta, kartaTrace } from './karta.js';
 import { estateDeals, estateSetAssumptions } from './estate.js';
-import { investing, investingSecurity, positioning, positioningSignals } from './investing.js';
+import { investing, investingSecurity, positioning, positioningSignals, investingOutcomes } from './investing.js';
 import { leads, lead, leadAct } from './leads.js';
 import { studio, studioProduction, studioAct } from './studio.js';
 import { careers, career, careerIntake, careerAct, careerFile } from './careers.js';
@@ -54,6 +54,7 @@ export const FIXTURES = {
   iris2_estate_deals: estateDeals,
   iris2_investing: investing,
   iris2_investing_security: investingSecurity,
+  iris2_investing_outcomes: investingOutcomes,
   iris2_positioning: positioning,
   iris2_positioning_signals: positioningSignals,
   iris2_leads: leads,

@@ -149,22 +149,22 @@ declare n0 int; n1 int; n2 int; n3 int;
 begin
   select count(*) into n0 from market.signal_publications;
   insert into market.signals (symbol, as_of, kind, direction, conviction, surfaced, status, dedupe_key, created_at)
-    values ('SPY', '2026-09-14 14:00-04', 'put_wall', 1, 70, true, 'active', 'SPY:put_wall', '2026-09-14 14:05-04');
+    values ('SPY', '2026-09-14 14:00-04', 'put_wall', 1, 70, true, 'active', 't09:put_wall:1', '2026-09-14 14:05-04');
   insert into market.signals (symbol, as_of, kind, direction, conviction, surfaced, status, dedupe_key, created_at)
-    values ('SPY', '2026-09-14 17:00-04', 'put_wall', 1, 72, true, 'active', 'SPY:put_wall:2', '2026-09-14 17:05-04');
+    values ('SPY', '2026-09-14 17:00-04', 'put_wall', 1, 72, true, 'active', 't09:put_wall:2', '2026-09-14 17:05-04');
   select count(*) into n1 from market.signal_publications;
   if n1 - n0 <> 1 then raise exception 'T09 FAIL re-emission created % publications', n1 - n0; end if;
   insert into market.signals (symbol, as_of, kind, direction, conviction, surfaced, status, dedupe_key, created_at)
-    values ('SPY', '2026-09-14 20:00-04', 'put_wall', -1, 60, true, 'active', 'SPY:put_wall:3', '2026-09-14 20:05-04');
+    values ('SPY', '2026-09-14 20:00-04', 'put_wall', -1, 60, true, 'active', 't09:put_wall:3', '2026-09-14 20:05-04');
   select count(*) into n2 from market.signal_publications;
   if n2 - n1 <> 1 then raise exception 'T09 FAIL direction flip did not publish'; end if;
   insert into market.signals (symbol, as_of, kind, direction, conviction, surfaced, status, dedupe_key, created_at)
-    values ('SPY', '2026-09-17 14:00-04', 'put_wall', -1, 60, true, 'active', 'SPY:put_wall:4', '2026-09-17 14:05-04');
+    values ('SPY', '2026-09-17 14:00-04', 'put_wall', -1, 60, true, 'active', 't09:put_wall:4', '2026-09-17 14:05-04');
   select count(*) into n3 from market.signal_publications;
   if n3 - n2 <> 1 then raise exception 'T09 FAIL 36 h absence did not republish'; end if;
   -- an unsurfaced signal never publishes
   insert into market.signals (symbol, as_of, kind, direction, conviction, surfaced, status, dedupe_key, created_at)
-    values ('SPY', '2026-09-17 17:00-04', 'call_wall', -1, 20, false, 'muted', 'SPY:call_wall:x', '2026-09-17 17:05-04');
+    values ('SPY', '2026-09-17 17:00-04', 'call_wall', -1, 20, false, 'muted', 't09:call_wall:x', '2026-09-17 17:05-04');
   if (select count(*) from market.signal_publications) <> n3 then raise exception 'T09 FAIL unsurfaced signal published'; end if;
   raise notice 'PASS T09 signal publications: dedupe, direction flip, absence, unsurfaced';
 end $$;

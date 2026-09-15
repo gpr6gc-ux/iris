@@ -7,25 +7,31 @@ const card = (o) => ({
   conviction: o.conviction, band: o.conviction >= 70 ? 'High' : o.conviction >= 40 ? 'Medium' : 'Low',
   status: 'actionable', surfaced: true, close: o.close, chg_1d: o.chg_1d ?? 0.004,
   ret_1m: o.ret_1m ?? 0.03, ret_3m: o.ret_3m ?? 0.08, rsi: o.rsi ?? 58, pctb: o.pctb ?? 0.7, pos_52w: o.pos_52w ?? 0.7,
-  options: o.options, headline: o.headline,
+  options: o.options, options_checked: false, headline: o.headline,
   entry: o.close, stop: o.stop, target: o.target, risk_pct: o.risk_pct ?? 0.04, rr: 2.0,
-  why: o.why, as_of: '2026-09-02', has_fundamentals: o.has_fundamentals ?? true, regime: 'normal',
+  stop_basis: o.stop_basis ?? 'sma20', stop_distance_pct: o.risk_pct ?? 0.04, target_kind: 'scenario_2r',
+  levels: { entry: 'last close of the session dated as_of', stop: ({ sma20: '20-day SMA', sma50: '50-day SMA', bb_lower: 'lower Bollinger band (20, 2σ)', bb_upper: 'upper Bollinger band (20, 2σ)' })[o.stop_basis ?? 'sma20'], target: 'entry + 2 × (entry − stop): a scenario reference level, not a forecast' },
+  price_state: o.price_state ?? 'LAST_SESSION', sessions_behind: o.sessions_behind ?? 0,
+  evidence_families: o.evidence_families ?? 3, families_agree: o.families_agree ?? 2, model_version: 'decisions-2026.09.15',
+  why: o.why, as_of: o.as_of ?? '2026-09-11', has_fundamentals: o.has_fundamentals ?? true, regime: 'normal',
 });
 
 const why = (a, b, c) => [a, b, c];
 const F = (k, label, text, points) => ({ k, label, text, points });
 
 export const investing = () => ok({
-  as_of: '2026-09-02',
+  as_of: '2026-09-11',
+  model_version: 'decisions-2026.09.15',
+  multidim_mode: 'factors',
   regime: {
     state: 'normal', stability: 63, shaky: false,
     breadth_above50: 0.45, breadth_above200: 0.59, breadth_rsi_bull: 0.34, net_1m: -0.24,
     mkt_ret_1m: -0.023, mkt_rvol: 0.09, mkt_rvol_pctile: 0.05, mkt_above_sma50: false, curve_2s10s: 0.41, gex_regime: null,
     explain: '45% of stocks above their 50-day · 59% above their 200-day · proxy vol 9% (5th pctile of its own 6mo) · market proxy below its 50-day trend · 2s10s 0.41 · GEX n/a',
     contrib: { breadth50: 11.3, breadth200: 8.9, trend: 6.9, rvol: 23.8, curve: 9.1, thrust: 2.6 },
-    as_of: '2026-09-02',
+    as_of: '2026-09-11',
   },
-  counts: { actionable: 721, longs: 367, shorts: 354, universe: 1297 },
+  counts: { actionable: 648, longs: 277, shorts: 371, universe: 1297, by_status: { actionable: 648, watch: 630, stale: 19 }, by_price_state: { LAST_SESSION: 1278, STALE: 19 }, priced_tickers: 12479 },
   watchlist: [
     card({ symbol: 'AAPL', name: 'APPLE INC', posture: 'LONG', direction: 'long', conviction: 47, close: 324.96, rsi: 73, pctb: 1.03, pos_52w: 0.87, ret_1m: 0.05, ret_3m: 0.05,
       options: 'Call debit spread or a starter long', headline: 'Above the 50 & 200-day with positive momentum — constructive long; invalidation below $313.55.',
@@ -33,12 +39,12 @@ export const investing = () => ok({
     card({ symbol: 'NVDA', name: 'NVIDIA CORP', posture: 'LEAN LONG', direction: 'long', conviction: 40, close: 224.41, rsi: 49, pctb: 0.75, pos_52w: 0.84, ret_1m: 0.06, ret_3m: 0.04,
       options: 'Call debit spread or a starter long', headline: 'Above the 50 & 200-day with positive momentum — constructive long; invalidation below $219.29.',
       stop: 219.29, target: 234.65, risk_pct: 0.023, why: why(F('trend', 'Trend structure', 'Above the 50 & 200-day', 19.2), F('mom', 'Momentum (1m/3m)', 'Return 6% 1m · 4% 3m', 8.9), F('ma', 'Distance to 200-day', '13% above the 200-day', 10)) }),
-    card({ symbol: 'TSLA', name: 'TESLA INC', posture: 'LEAN SHORT', direction: 'short', conviction: 25, close: 357.01, rsi: 44, pctb: 0.4, pos_52w: 0.5, ret_1m: -0.04, ret_3m: -0.07,
+    card({ symbol: 'TSLA', name: 'TESLA INC', posture: 'LEAN SHORT', direction: 'short', conviction: 25, close: 357.01, rsi: 44, pctb: 0.4, pos_52w: 0.5, ret_1m: -0.04, ret_3m: -0.07, price_state: 'STALE', sessions_behind: 3, as_of: '2026-09-08', stop_basis: 'sma50',
       options: 'Put debit spread, or trim / avoid', headline: 'Below the 50 & 200-day and weak momentum — short / avoid; invalidation above $358.35.',
       stop: 358.35, target: 354.33, risk_pct: 0.004, why: why(F('trend', 'Trend structure', 'Below the 50 & 200-day', -19.2), F('ma', 'Distance to 200-day', '-11% below the 200-day', -10), F('val', 'Valuation overlay', 'P/S 14.9 · P/E 371.6 · profitable', -6.4)) }),
-    { symbol: 'SPY', name: 'S&P 500 ETF', status: 'no_price_data', note: 'ETF price feed not connected' },
-    { symbol: 'QQQ', name: 'Nasdaq-100 ETF', status: 'no_price_data', note: 'ETF price feed not connected' },
-    { symbol: 'IWM', name: 'Russell 2000 ETF', status: 'no_price_data', note: 'ETF price feed not connected' },
+    { symbol: 'SPY', name: 'S&P 500 ETF', status: 'insufficient_history', bars: 2, bars_needed: 60, last_bar: '2026-09-11', note: '2 daily bars on file, 60 needed — history backfill pending' },
+    { symbol: 'QQQ', name: 'Nasdaq-100 ETF', status: 'insufficient_history', bars: 2, bars_needed: 60, last_bar: '2026-09-11', note: '2 daily bars on file, 60 needed — history backfill pending' },
+    { symbol: 'IWM', name: 'Russell 2000 ETF', status: 'no_price_data', bars: 0, bars_needed: 60, last_bar: null, note: 'no price history' },
   ],
   longs: [
     card({ symbol: 'IBEX', name: 'IBEX LTD', posture: 'LONG', direction: 'long', conviction: 93, close: 38.94, rsi: 71, pctb: 0.95, pos_52w: 0.98, ret_1m: 0.07, ret_3m: 0.30,
@@ -62,8 +68,23 @@ export const investing = () => ok({
       options: 'Puts or put debit spreads', headline: 'Below the 50 & 200-day and weak momentum — short / avoid; invalidation above $505.00.',
       stop: 505.00, target: 400.00, risk_pct: 0.074, why: why(F('trend', 'Trend structure', 'Below the 50 & 200-day, death cross', -24), F('mom', 'Momentum (1m/3m)', 'Return -8% 1m · -18% 3m', -16), F('ma', 'Distance to 200-day', '-9% below the 200-day', -8.6)) }),
   ],
-  freshness: { prices_as_of: '2026-09-02', prices_stale: false, fundamentals_as_of: '2026-09-03', macro_as_of: '2026-09-04', computed_at: '2026-09-05T17:24:17Z' },
-  scope_note: 'Decisions cover the 1297-stock priced universe (EDGAR). Index ETFs (SPY/QQQ/IWM) need a price source; their dealer-positioning is on the Positioning tab. Prices as of 2026-09-02 — decision-support, not advice.',
+  feeds: {
+    prices: { as_of: '2026-09-11', state: 'LAST_SESSION', sessions_behind: 0, last_completed_session: '2026-09-11', dataset: 'inv.prices', source: 'massive:grouped-daily', cadence: 'one session per run, after the provider\'s end of day', tickers: 12479, coverage_vs_prior: 0.998, basis: 'newest session with >= 1,000 bars; a single ticker with a newer bar does not count' },
+    decisions: { computed_at: '2026-09-12T08:31:02Z', as_of: '2026-09-11', model_version: 'decisions-2026.09.15', basis: 'recomputed from inv.prices after each price load' },
+    chains: { as_of: '2026-09-11T20:00:05Z', basis: 'source_as_of', age_s: 5400, provider_delay_s: 900, state: 'LAST_SESSION', dataset: 'market.chain_snapshots', source: 'cboe:delayed_quotes (15-minute delayed)', cadence: '14:00, 17:00, 20:00 ET on session days', oi_business_date: '2026-09-10', symbols: 12 },
+    macro: { as_of: '2026-09-10', state: 'DELAYED', sessions_behind: 1, last_completed_session: '2026-09-11', dataset: 'inv.macro', source: 'FRED', cadence: 'daily 11:15 UTC; series publish with their own lags' },
+    fundamentals: { as_of: '2026-09-03', dataset: 'inv.fundamentals', source: 'SEC EDGAR XBRL', cadence: 'nightly; only fills missing coverage', state: 'REFERENCE' },
+  },
+  freshness: { prices_as_of: '2026-09-11', prices_stale: false, fundamentals_as_of: '2026-09-03', macro_as_of: '2026-09-10', computed_at: '2026-09-12T08:31:02Z' },
+  scope_note: 'Decisions cover the 1297 names with at least 60 daily bars; the price feed itself covers 12479 tickers and the history backfill is in progress (benchmark ETFs included). Levels are observed moving averages and bands; the 2R level is a scenario reference, not a forecast. Decision-support, not advice.',
+});
+
+// iris2_investing_outcomes(p_symbol) — graded outcomes are empty until publications reach their horizons.
+export const investingOutcomes = () => ok({
+  summary: { grader_version: 'grader-2026.09.15', pub_kind: 'decision', horizons: {}, definitions: { ret_net: 'direction x (exit close / execution close - 1) - round-trip cost' } },
+  signals_summary: { grader_version: 'grader-2026.09.15', pub_kind: 'signal', horizons: {} },
+  pending: 648, publications: 648, graded: 0, benchmark_unavailable: 0, last_completed_session: '2026-09-11',
+  symbol_outcomes: [], symbol_publications: [{ pub_kind: 'decision', direction: 1, published_at: '2026-09-12T08:31:02Z', first_eligible_execution_at: '2026-09-14T13:35:00Z', conviction: 47 }],
 });
 
 export const positioning = () => {

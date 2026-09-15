@@ -196,3 +196,17 @@ begin
     'pressure_note', 'Only the year-on-year change is meaningful — PPI levels sit on different bases and must never be compared across series.',
     'catalysts', v_cat, 'screen', v_screen, 'sparks', v_sparks, 'sparks_days', 90);
 end $function$;
+
+-- ---- pg_cron stand-in. Production schedules a one-shot job for the recompute; locally the "job" runs immediately.
+create schema if not exists cron;
+create table if not exists cron.job (jobid bigint generated always as identity primary key, jobname text, schedule text, command text, active boolean default true);
+create or replace function cron.schedule(p_name text, p_schedule text, p_command text) returns bigint
+language plpgsql as $$
+declare v bigint;
+begin
+  insert into cron.job (jobname, schedule, command) values (p_name, p_schedule, p_command) returning jobid into v;
+  execute p_command;   -- local only: run now instead of at the next minute tick
+  return v;
+end $$;
+create or replace function cron.unschedule(p_name text) returns boolean
+language plpgsql as $$ begin delete from cron.job where jobname = p_name; return found; end $$;
