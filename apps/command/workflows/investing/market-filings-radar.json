@@ -1,0 +1,210 @@
+{
+  "name": "IRIS — Market: Filings Radar",
+  "description": "Hourly at :20. Reads the SEC EDGAR daily form index for today and yesterday, keeps 10-K / 10-K/A / 10-Q / 10-Q/A only, dedupes by accession across runs via workflow static data, caps at 60 rows, and files each as an iris_inv_catalyst of kind=filing.",
+  "active": true,
+  "nodes": [
+    {
+      "name": "Hourly at :20",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtMinute": 20
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Build EDGAR Index URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const now = new Date();\nconst out = [];\nfor (let i = 0; i < 2; i++) {\n  const d = new Date(now.getTime() - i * 86400000);\n  const y = d.getUTCFullYear();\n  const mo = d.getUTCMonth() + 1;\n  const day = d.getUTCDate();\n  const q = Math.floor((mo - 1) / 3) + 1;\n  const mm = mo < 10 ? \"0\" + mo : \"\" + mo;\n  const dd = day < 10 ? \"0\" + day : \"\" + day;\n  const stamp = \"\" + y + mm + dd;\n  out.push({ json: { url: \"https://www.sec.gov/Archives/edgar/daily-index/\" + y + \"/QTR\" + q + \"/form.\" + stamp + \".idx\", dateStamp: stamp, which: i === 0 ? \"today\" : \"yesterday\" } });\n}\nreturn out;"
+      }
+    },
+    {
+      "name": "Fetch EDGAR Daily Index",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "IRIS Research greyson@mccourtai.com"
+            },
+            {
+              "name": "Accept",
+              "value": "text/plain,*/*"
+            },
+            {
+              "name": "Accept-Encoding",
+              "value": "gzip, deflate"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text",
+              "outputPropertyName": "data"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Extract New 10-K and 10-Q Filings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const NL = String.fromCharCode(10);\nconst CR = String.fromCharCode(13);\nconst want = { \"10-K\": 62, \"10-K/A\": 45, \"10-Q\": 56, \"10-Q/A\": 45 };\nconst items = $input.all();\nconst found = {};\nconst order = [];\nconst readOk = [];\nfor (let i = 0; i < items.length; i++) {\n  const j = items[i].json;\n  let text = null;\n  if (typeof j.data === \"string\") { text = j.data; } else if (typeof j.body === \"string\") { text = j.body; }\n  if (!text) { continue; }\n  if (text.indexOf(\"edgar/data/\") === -1) { continue; }\n  readOk.push(i);\n  const lines = text.split(NL);\n  for (let k = 0; k < lines.length; k++) {\n    const line = lines[k].split(CR).join(\"\");\n    if (line.length < 40) { continue; }\n    const form = line.substring(0, 17).trim();\n    if (want[form] === undefined) { continue; }\n    const rest = line.substring(17);\n    const parts = rest.split(\" \").filter(function (s) { return s.length > 0; });\n    if (parts.length < 4) { continue; }\n    const fileName = parts[parts.length - 1];\n    const dateFiled = parts[parts.length - 2];\n    const cikStr = parts[parts.length - 3];\n    if (fileName.indexOf(\"edgar/\") !== 0) { continue; }\n    if (dateFiled.length !== 8 || !isFinite(Number(dateFiled))) { continue; }\n    const cik = Number(cikStr);\n    if (!isFinite(cik) || cik <= 0) { continue; }\n    const company = parts.slice(0, parts.length - 3).join(\" \").trim();\n    if (!company) { continue; }\n    const base = fileName.substring(fileName.lastIndexOf(\"/\") + 1);\n    const accn = base.split(\".txt\").join(\"\");\n    const noDash = accn.split(\"-\").join(\"\");\n    if (found[accn]) { continue; }\n    const filed = dateFiled.substring(0, 4) + \"-\" + dateFiled.substring(4, 6) + \"-\" + dateFiled.substring(6, 8);\n    found[accn] = { form: form, company: company, cik: cik, accn: accn, filed: filed, url: \"https://www.sec.gov/Archives/edgar/data/\" + cik + \"/\" + noDash + \"/\" + accn + \"-index.htm\", score: want[form] };\n    order.push(accn);\n  }\n}\nconst store = $getWorkflowStaticData(\"global\");\nif (!store.seenAccessions) { store.seenAccessions = []; }\nconst seen = {};\nfor (let i = 0; i < store.seenAccessions.length; i++) { seen[store.seenAccessions[i]] = true; }\nconst fresh = [];\nfor (let i = 0; i < order.length; i++) {\n  if (seen[order[i]]) { continue; }\n  fresh.push(found[order[i]]);\n}\nfresh.sort(function (x, y) {\n  if (x.filed === y.filed) { return 0; }\n  return x.filed < y.filed ? 1 : -1;\n});\nconst take = fresh.slice(0, 60);\nif (!take.length) { return []; }\nconst rows = take.map(function (f) {\n  return { kind: \"filing\", headline: f.company + \" filed a \" + f.form, detail: f.company + \" (CIK \" + f.cik + \") filed form \" + f.form + \" with the SEC on \" + f.filed + \". Accession \" + f.accn + \". Seen in the EDGAR daily form index.\", url: f.url, source: \"SEC EDGAR\", tickers: [], industries: [], score: f.score };\n});\nconst accns = take.map(function (f) { return f.accn; });\nstore.seenAccessions = store.seenAccessions.concat(accns).slice(-5000);\nreturn [{ json: { body: { p_token: \"<<IRIS_TOKEN>>\", p_rows: rows }, filingCount: rows.length, indexesParsed: readOk.length, candidatesFound: order.length, alreadySeen: order.length - fresh.length } }];"
+      }
+    },
+    {
+      "name": "Write Filing Catalysts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssuikijiaulfhfxzwrgu.supabase.co/rest/v1/rpc/iris_inv_catalyst",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<<REDACTED>>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <<REDACTED>>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "name": "Sticky Note be1c44c5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        170,
+        -50
+      ],
+      "parameters": {
+        "content": "## EDGAR daily form index, hourly\nReads form.YYYYMMDD.idx for today and yesterday. Today file is 403 until SEC publishes it - that is expected and simply yields nothing.\nFixed-width parse, keeps 10-K, 10-K/A, 10-Q, 10-Q/A only.\nCross-run dedupe by accession number lives in workflow static data, so an hourly re-read of the same index files never re-files the same filing. Static data only persists on production runs, so a manual test run can re-file rows.\nHard cap of 60 rows per run, newest first; anything shed stays unseen and is picked up next hour.\nNo fundamentals are derived here - that is a separate job.",
+        "color": 5,
+        "width": 740,
+        "height": 200
+      }
+    }
+  ],
+  "connections": {
+    "Hourly at :20": {
+      "main": [
+        [
+          {
+            "node": "Build EDGAR Index URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build EDGAR Index URLs": {
+      "main": [
+        [
+          {
+            "node": "Fetch EDGAR Daily Index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch EDGAR Daily Index": {
+      "main": [
+        [
+          {
+            "node": "Extract New 10-K and 10-Q Filings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract New 10-K and 10-Q Filings": {
+      "main": [
+        [
+          {
+            "node": "Write Filing Catalysts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "UTC"
+  }
+}

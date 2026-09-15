@@ -1,0 +1,24 @@
+# Netlify CLI state (site id lives in the deploy command, not the repo)
+.netlify/
+
+# Internal owner notes — audits, runbooks, data dives. They describe the whole system, including personal
+# finances and security posture, so they stay on the deploy machine and never enter a shared repository.
+docs/
+
+# Never version these
+node_modules/
+*.bundle
+*.zip
+*.log
+.env
+.env.*
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# sidecar node deps (the station installs `ws` locally when a live key is configured)
+sidecar/node_modules/
+
+# build output (assembled by build-site.sh)
+dist/

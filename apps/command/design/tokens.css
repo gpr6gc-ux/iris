@@ -1,0 +1,206 @@
+/* IRIS design tokens — Executive Intelligence Console.
+   Near-black graphite ground, restrained violet accent (intelligence), semantic color only for meaning.
+   Everything derives from --brand-hue so the identity is one attribute change.
+   Modes: light (default when nothing is stamped) · dark via [data-mode="dark"] or prefers-color-scheme */
+
+:root {
+  --brand-hue: 282;         /* violet — intelligence / reasoning / selected */
+  --brand-chroma: 0.155;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --radius: 0.625rem;
+  --radius-sm: 0.375rem;
+  --radius-lg: 0.75rem;
+  --ease: cubic-bezier(.2,.7,.2,1);
+
+  /* light mode */
+  --background: oklch(98.6% .006 var(--brand-hue));
+  --foreground: oklch(20% .03 var(--brand-hue));
+  --card: oklch(100% 0 0);
+  --card-2: oklch(97.5% .008 var(--brand-hue));
+  --popover: oklch(100% 0 0);
+  --muted: oklch(96% .012 var(--brand-hue));
+  --muted-foreground: oklch(45% .03 var(--brand-hue));
+  --subtle: oklch(62% .03 var(--brand-hue));
+  --border: oklch(91% .012 var(--brand-hue));
+  --border-strong: oklch(85% .018 var(--brand-hue));
+  --input: oklch(91% .012 var(--brand-hue));
+  --primary: oklch(50% var(--brand-chroma) var(--brand-hue));
+  --primary-foreground: oklch(99% .005 var(--brand-hue));
+  --primary-soft: oklch(94% .04 var(--brand-hue));
+  --ring: oklch(60% .13 var(--brand-hue));
+  --sidebar: oklch(97.8% .008 var(--brand-hue));
+  --sidebar-foreground: oklch(24% .04 var(--brand-hue));
+  --sidebar-border: oklch(90% .014 var(--brand-hue));
+  --shadow-sm: 0 1px 2px color-mix(in oklab, var(--foreground) 6%, transparent), 0 1px 4px -1px color-mix(in oklab, var(--foreground) 8%, transparent);
+  --shadow-md: 0 6px 18px -8px color-mix(in oklab, var(--foreground) 22%, transparent), 0 2px 6px -2px color-mix(in oklab, var(--foreground) 10%, transparent);
+  --shadow-lg: 0 24px 48px -16px color-mix(in oklab, var(--foreground) 30%, transparent), 0 8px 20px -8px color-mix(in oklab, var(--foreground) 14%, transparent);
+  --glow: 0 0 0 1px color-mix(in oklab, var(--primary) 30%, transparent);
+  --glow-strong: 0 0 0 1px color-mix(in oklab, var(--primary) 50%, transparent), 0 0 22px -10px color-mix(in oklab, var(--primary) 45%, transparent);
+  --ambient-a: color-mix(in oklab, var(--primary) 8%, transparent);
+  --ambient-b: color-mix(in oklab, var(--primary) 5%, transparent);
+
+  /* semantic — severity (never used as the accent) */
+  --sev-high: oklch(56% .21 25);
+  --sev-high-soft: oklch(95% .035 25);
+  --sev-medium: oklch(70% .16 70);
+  --sev-medium-soft: oklch(96% .05 80);
+  --sev-low: oklch(56% .13 255);
+  --sev-low-soft: oklch(95% .025 255);
+  --sev-info: oklch(58% .02 260);
+  --sev-info-soft: oklch(95% .005 260);
+  --good: oklch(56% .15 158);
+  --good-soft: oklch(95% .04 158);
+  --warn: var(--sev-medium);
+  --critical: var(--sev-high);
+  --bucket-agree: var(--good);
+  --bucket-disputed: var(--sev-high);
+  --bucket-unverified: var(--sev-medium);
+  --bucket-llm: oklch(58% .17 300);
+  --bucket-context: var(--sev-info);
+  --role-input: oklch(60% .14 150);
+  --role-data: oklch(60% .12 200);
+  --role-system: oklch(60% .1 260);
+  --role-calculation: oklch(58% .15 285);
+  --role-output: oklch(64% .16 60);
+  --role-archive: oklch(55% .02 260);
+}
+
+/* hue themes — 'lens' (default) is the graphite+violet identity */
+[data-theme="lens"]     { --brand-hue: 282; --brand-chroma: .155; }
+[data-theme="indigo"]   { --brand-hue: 265; --brand-chroma: .16; }
+[data-theme="forest"]   { --brand-hue: 160; --brand-chroma: .14; }
+[data-theme="plum"]     { --brand-hue: 310; --brand-chroma: .16; }
+[data-theme="amber"]    { --brand-hue: 60;  --brand-chroma: .15; }
+[data-theme="graphite"] { --brand-hue: 275; --brand-chroma: .02; }
+
+[data-mode="dark"],
+:root:not([data-mode="light"]):is(.mode-system) {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode="light"]) {
+    --background: oklch(10.5% .014 var(--brand-hue));
+    --foreground: oklch(94.5% .01 var(--brand-hue));
+    --card: oklch(15% .016 var(--brand-hue));
+    --card-2: oklch(18.5% .02 var(--brand-hue));
+    --popover: oklch(16.5% .018 var(--brand-hue));
+    --muted: oklch(22% .022 var(--brand-hue));
+    --muted-foreground: oklch(70% .028 var(--brand-hue));
+    --subtle: oklch(56% .03 var(--brand-hue));
+    --border: oklch(100% 0 0 / .08);
+    --border-strong: oklch(100% 0 0 / .15);
+    --input: oklch(100% 0 0 / .12);
+    --primary: oklch(70% var(--brand-chroma) var(--brand-hue));
+    --primary-foreground: oklch(14% .03 var(--brand-hue));
+    --primary-soft: oklch(28% .07 var(--brand-hue));
+    --ring: oklch(66% .15 var(--brand-hue));
+    --sidebar: oklch(12% .014 var(--brand-hue));
+    --sidebar-foreground: oklch(92% .01 var(--brand-hue));
+    --sidebar-border: oklch(100% 0 0 / .07);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+    --shadow-md: 0 10px 24px -12px rgb(0 0 0 / .7), 0 2px 6px -2px rgb(0 0 0 / .45);
+    --shadow-lg: 0 30px 60px -20px rgb(0 0 0 / .75), 0 10px 24px -10px rgb(0 0 0 / .5);
+    --glow: 0 0 0 1px color-mix(in oklab, var(--primary) 32%, transparent);
+    --glow-strong: 0 0 0 1px color-mix(in oklab, var(--primary) 52%, transparent), 0 0 24px -10px color-mix(in oklab, var(--primary) 45%, transparent);
+    --ambient-a: color-mix(in oklab, var(--primary) 12%, transparent);
+    --ambient-b: color-mix(in oklab, var(--primary) 7%, transparent);
+    --sev-high: oklch(68% .19 24);
+    --sev-high-soft: oklch(30% .07 24);
+    --sev-medium: oklch(80% .14 75);
+    --sev-medium-soft: oklch(32% .06 75);
+    --sev-low: oklch(66% .15 258);
+    --sev-low-soft: oklch(30% .05 258);
+    --sev-info: oklch(68% .015 260);
+    --sev-info-soft: oklch(28% .008 260);
+    --good: oklch(72% .14 158);
+    --good-soft: oklch(30% .05 158);
+    --bucket-llm: oklch(74% .15 300);
+    --role-input: oklch(74% .13 150);
+    --role-data: oklch(74% .11 200);
+    --role-system: oklch(74% .09 260);
+    --role-calculation: oklch(74% .13 285);
+    --role-output: oklch(78% .14 60);
+    --role-archive: oklch(66% .02 260);
+  }
+}
+
+[data-mode="dark"] {
+  --background: oklch(10.5% .014 var(--brand-hue));
+  --foreground: oklch(94.5% .01 var(--brand-hue));
+  --card: oklch(15% .016 var(--brand-hue));
+  --card-2: oklch(18.5% .02 var(--brand-hue));
+  --popover: oklch(16.5% .018 var(--brand-hue));
+  --muted: oklch(22% .022 var(--brand-hue));
+  --muted-foreground: oklch(70% .028 var(--brand-hue));
+  --subtle: oklch(56% .03 var(--brand-hue));
+  --border: oklch(100% 0 0 / .08);
+  --border-strong: oklch(100% 0 0 / .15);
+  --input: oklch(100% 0 0 / .12);
+  --primary: oklch(70% var(--brand-chroma) var(--brand-hue));
+  --primary-foreground: oklch(14% .03 var(--brand-hue));
+  --primary-soft: oklch(28% .07 var(--brand-hue));
+  --ring: oklch(66% .15 var(--brand-hue));
+  --sidebar: oklch(12% .014 var(--brand-hue));
+  --sidebar-foreground: oklch(92% .01 var(--brand-hue));
+  --sidebar-border: oklch(100% 0 0 / .07);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / .4);
+  --shadow-md: 0 10px 24px -12px rgb(0 0 0 / .7), 0 2px 6px -2px rgb(0 0 0 / .45);
+  --shadow-lg: 0 30px 60px -20px rgb(0 0 0 / .75), 0 10px 24px -10px rgb(0 0 0 / .5);
+  --glow: 0 0 0 1px color-mix(in oklab, var(--primary) 32%, transparent);
+  --glow-strong: 0 0 0 1px color-mix(in oklab, var(--primary) 52%, transparent), 0 0 24px -10px color-mix(in oklab, var(--primary) 45%, transparent);
+  --ambient-a: color-mix(in oklab, var(--primary) 12%, transparent);
+  --ambient-b: color-mix(in oklab, var(--primary) 7%, transparent);
+  --sev-high: oklch(68% .19 24);
+  --sev-high-soft: oklch(30% .07 24);
+  --sev-medium: oklch(80% .14 75);
+  --sev-medium-soft: oklch(32% .06 75);
+  --sev-low: oklch(66% .15 258);
+  --sev-low-soft: oklch(30% .05 258);
+  --sev-info: oklch(68% .015 260);
+  --sev-info-soft: oklch(28% .008 260);
+  --good: oklch(72% .14 158);
+  --good-soft: oklch(30% .05 158);
+  --bucket-llm: oklch(74% .15 300);
+  --role-input: oklch(74% .13 150);
+  --role-data: oklch(74% .11 200);
+  --role-system: oklch(74% .09 260);
+  --role-calculation: oklch(74% .13 285);
+  --role-output: oklch(78% .14 60);
+  --role-archive: oklch(66% .02 260);
+}
+
+/* ambient ground: two very soft radial washes of the accent */
+.ml-ground {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(52rem 32rem at 88% -12%, var(--ambient-a) 0%, transparent 62%),
+    radial-gradient(46rem 30rem at 4% 112%, var(--ambient-b) 0%, transparent 62%);
+  background-attachment: fixed;
+}
+@keyframes ml-ambient-drift {
+  0%   { background-position: 0 0, 0 0; }
+  50%  { background-position: -3% 2%, 3% -2%; }
+  100% { background-position: 0 0, 0 0; }
+}
+@keyframes ml-route-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes ml-count-pop {
+  0% { transform: translateY(4px); opacity: 0; }
+  60% { transform: translateY(-1px); opacity: 1; }
+  100% { transform: none; }
+}
+@keyframes ml-glow-pulse {
+  0%, 100% { box-shadow: var(--glow); }
+  50% { box-shadow: var(--glow-strong); }
+}
+@keyframes ml-shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ml-ground, .ml-enter, .ml-pop, .ml-glow-pulse { animation: none !important; }
+}
