@@ -1,0 +1,6 @@
+{"symbol":"SPY","last":760.10,"session_volume":42000000,"seq":1,"event_time":"2026-09-15T13:45:01Z"}
+{"symbol":"QQQ","last":709.40,"session_volume":31000000,"seq":1,"event_time":"2026-09-15T13:45:01Z"}
+{"symbol":"SPY","bid":760.08,"ask":760.12,"seq":2,"event_time":"2026-09-15T13:45:02Z"}
+{"symbol":"NVDA","last":212.05,"session_volume":18000000,"seq":1,"event_time":"2026-09-15T13:45:02Z"}
+{"symbol":"SPY","last":760.35,"session_volume":42050000,"seq":3,"event_time":"2026-09-15T13:45:03Z"}
+{"symbol":"QQQ","last":709.55,"session_volume":31020000,"seq":2,"event_time":"2026-09-15T13:45:03Z"}

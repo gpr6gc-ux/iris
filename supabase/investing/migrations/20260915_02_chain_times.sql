@@ -114,13 +114,15 @@ begin
     'meta', jsonb_build_object('took_ms', round(extract(epoch from clock_timestamp()-t0)*1000)));
 end $function$;
 
--- Token-gated wrapper (n8n) and the schema-level wrapper gain the same optional parameters.
+-- Token-gated wrapper (n8n) and the schema-level wrapper gain the same optional parameters. The 90 s statement budget
+-- must sit on the OUTERMOST function: the API role's default timeout is armed at statement start.
 create or replace function market.ingest_chain(p_token text, p_symbol text, p_as_of timestamp with time zone, p_spot numeric, p_cells jsonb,
                                                p_source_as_of timestamp with time zone default null)
  returns jsonb
  language plpgsql
  security definer
  set search_path to 'pg_catalog', 'public', 'pg_temp'
+ set statement_timeout to '90s'
 as $function$
 begin
   perform brain.check_app_token(p_token);
@@ -133,6 +135,7 @@ create or replace function public.iris_positioning_ingest(p_token text, p_symbol
  language plpgsql
  security definer
  set search_path to 'pg_catalog', 'public', 'pg_temp'
+ set statement_timeout to '90s'
 as $function$
 begin
   perform brain.check_app_token(p_token);
