@@ -57,12 +57,33 @@ verified on a clean local Postgres; **awaiting** = built, blocked on a credentia
   (see STATUS.md for progress).
 - CBOE ingest: passes the provider `timestamp` as `p_source_as_of`.
 
-## Phase 2 — data foundation  (see STATUS.md)
+## Phase 2 — data foundation (done; see STATUS.md)
+
+- `md.*` provider-neutral contract live (migration `20260916_01`): instruments (stable id), effective-dated symbols,
+  watchlist, quotes_latest with truthful state, feed_state. Tests M01–M06.
+- Streaming adapter live in the repo (`sidecar/`): reconnect/backoff, resubscribe, per-symbol coalescing, sequence
+  dedupe + gap detection, measured lag percentiles, batched flush, heartbeat. 11 tests pass. Runs in REPLAY with no
+  key; a `LIVE`/`DELAYED` badge awaits an entitled Massive key (owner decision — `investing/PROVIDERS.md`).
+
+## Phase 3/4 — research + product (done)
+
+- `iris2_investing_queue` (migration `20260916_02`): deterministic prioritized change queue + upcoming catalysts.
+  Deployed as the top of the Investing tab ("What changed", "Upcoming catalysts").
+- `market.theses`: versioned, append-only thesis records (schema ready; none authored yet).
+- Ticker detail: level provenance, evidence families, comparable outcomes — deployed.
+
+## Phase 5 — validation + docs (done)
+
+- Grader live and scheduled (`market-grade-outcomes`, 05:00 UTC). 0 graded outcomes so far — every publication is
+  younger than one horizon; this is honest, not a gap. Fills in as sessions pass.
+- Docs: `PROVIDERS.md`, `METHODOLOGY.md`, `DATA_DICTIONARY.md`, `STATUS.md`, this file.
+- SQL tests (18) + adapter tests (11) all green. `tests/investing/run.sh` runs the SQL suite against a local DB built
+  by `supabase/investing/rebuild_local.sh`.
 
 ## Open items / not started
 
-- Security master (`md.instruments`, effective-dated symbols, listing state) — requires the Massive reference endpoint
-  (key exists; entitlement on the free plan to be verified).
-- Streaming adapter (station sidecar) — built with replay fixtures; live connection awaits an entitled key.
-- Catalyst/event records, thesis versions, change queue, ticker detail — Phase 3/4.
-- Regenerate `supabase/investing/seed_investing.sql` after the backfill so contributors get benchmark history.
+- **Owner decisions** (see STATUS.md §"What is blocked"): buy an entitled quote plan or stay REPLAY; replace the
+  Cboe positioning pull (prohibited for automated use) with Massive Options.
+- Options flow / aggressor classification — needs a trade-level feed; not built on OI-only chains.
+- Regenerate `supabase/investing/seed_investing.sql` after the backfill completes so contributors get benchmark
+  history and the `md.*` / new `market.*` tables in the sample data.
