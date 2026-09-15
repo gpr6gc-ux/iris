@@ -64,11 +64,29 @@ The skeletons exist because nothing can see them all at once.
 
 | | Owner | Item | Notes |
 |---|---|---|---|
-| `[ ]` | G | Create `gpr6gc-ux/iris`, push this hub | One-time. CC cannot create repos. |
-| `[ ]` | CW+CC | Push the command center — **49 of its 93 files are in no repository at all** | Every non-investing page and fixture, plus the real `js/app.js`. Lose the laptop, lose them. |
+| `[x]` | G | Create `gpr6gc-ux/iris`, push this hub | Done 15 Sep 04:29. 16 commits, CI green. |
+| `[x]` | CC | Push the command center — was 80 of 124 files in no repository | Done 15 Sep. `apps/command/` as a subtree, all 9 of Cowork's commits preserved. **Cowork pushes here from now on — no more bundles.** |
 | `[ ]` | CW | Version the database — 20 schemas, 242 tables, **251 functions with no history anywhere** | `pg_dump --schema-only` per schema into `db/`, on a schedule. |
 | `[ ]` | CW | Version the n8n workflows | `workflow-backups` PR #1 does this and has been open since 5 Sep. The n8n-side job has been dead since 13 May. |
-| `[ ]` | G | Link `iris-command-5` to the repo instead of uploading zips | Then the live site always corresponds to a commit, and rollback exists. |
+| `[ ]` | G | Link `iris-command-5` to `gpr6gc-ux/iris`, base directory `apps/command`, publish `dist` | Then the live site always corresponds to a commit, and rollback exists. Netlify UI. |
+
+## Phase 4b — the momentum watch
+
+Added 15 Sep after the owner named the trade that actually works: narrative momentum on AI names.
+
+| | Owner | Item | Notes |
+|---|---|---|---|
+| `[x]` | CC | `watch/score.mjs` — deterministic stance, 10 tests | Direction from price never text; missing → INSUFFICIENT; Bollinger extension → EXTENDED_WAIT |
+| `[x]` | CC | `watch/flow.mjs` — tape → scorer inputs, 11 tests | Unknown is a valid side; dupes/corrections reconciled; GEX labelled an estimate |
+| `[x]` | G | Massive Options Advanced key in n8n as `IRIS_PRICE_API_KEY` | Done 15 Sep |
+| `[ ]` | CW | Capture 10 min of real options trades + quotes (CRWD, NVDA, PANW) → `apps/command/sidecar/fixtures/` | First thing to do with the key. Verifies the mapping; gives `flow.mjs` real-shaped data. |
+| `[ ]` | CW | Options provider mapping in `sidecar/providers/` — the existing `massive.js` is the stocks socket | Against the observed payloads, not the docs |
+| `[ ]` | G | Own Discord server + TweetShift following `registry/sources.yaml` | Narrative family. Cannot read a community you are only a member of. |
+| `[ ]` | CW | Discord gateway listener in `sidecar/` on `#momentum-feed` | Replaces the 60-second Capture Door poll — same change removes ~60% of executions |
+| `[ ]` | CW | Tweet → ticker tagging (model may extract symbols; never score), `watch.mentions` with the tweet's own timestamp | |
+| `[ ]` | CW | `narrative_velocity` per name vs its own baseline — SQL | |
+| `[ ]` | G | Stocks Starter ($29)? Options Advanced alone leaves stock quotes EOD — pre-market `price_move_pct` is null until the open | Decide; the CrowdStrike read was pre-market |
+| `[ ]` | CC | A grader entry per alert | So 30 alerts in, the system says whether this finds trades or noise |
 
 ## Phase 5 — the front door
 
@@ -97,7 +115,7 @@ Recorded so progress is measurable rather than felt. Snapshot 15 September 2026,
 | Agents spending but unregistered | 9 | — |
 | LLM spend / 30d | $37.38 (67% one agent) | — |
 | Netlify sites | 31 (15 unnamed) | — |
-| Command-center files in no repo | 49 | — |
+| Command-center files in no repo | 49 (80 by 03:00) | **0** |
 | DB functions with version history | 0 of 251 | — |
 
 Update the right-hand column as phases land. The audit is a snapshot, not a live view — one row
