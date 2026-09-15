@@ -85,7 +85,7 @@ Added 15 Sep after the owner named the trade that actually works: narrative mome
 | `[ ]` | CW | Discord gateway listener in `sidecar/` on `#momentum-feed` | Replaces the 60-second Capture Door poll — same change removes ~60% of executions |
 | `[ ]` | CW | Tweet → ticker tagging (model may extract symbols; never score), `watch.mentions` with the tweet's own timestamp | |
 | `[ ]` | CW | `narrative_velocity` per name vs its own baseline — SQL | |
-| `[ ]` | G | Stocks Starter ($29)? Options Advanced alone leaves stock quotes EOD — pre-market `price_move_pct` is null until the open | Decide; the CrowdStrike read was pre-market |
+| `[-]` | G | Stocks Starter ($29) | **Decided against, 15 Sep.** Stocks stay EOD on free Basic. In-session price comes from the underlying price on Options Advanced chain snapshots; pre-market and weekends have no price. Scorer adapted: a firing narrative with no price is `WATCH` ("confirm at 09:30 ET"), never `INSUFFICIENT_DATA`. |
 | `[ ]` | CC | A grader entry per alert | So 30 alerts in, the system says whether this finds trades or noise |
 
 ## Phase 5 — the front door

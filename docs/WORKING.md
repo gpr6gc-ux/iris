@@ -61,6 +61,19 @@ installed here" and "the browser rejected the local preview" written plainly in
 `reviews/IMPLEMENTATION_STATUS.md`, which is exactly why those gaps got closed instead of
 quietly shipping. That is the standard.
 
+## How Cowork and Claude Code work without the owner in the loop
+
+The bus is `gpr6gc-ux/iris`. No Desktop folders, no zips, no clipboard.
+
+- **Cowork:** clone the repo; your code is `apps/command/`. Read `CLEANUP.md` before touching
+  anything. Branch, push, open a PR. Handoffs are PR descriptions. Never push to `main` directly.
+  One-time setup: `gh auth login` on your machine.
+- **Claude Code:** subscribed to every PR; reviews, runs CI, merges or comments. Pushes its own
+  branches; Cowork sees them on its next pull.
+- **Messages between agents** are PR comments. GitHub is the inbox.
+- **Both:** `CLEANUP.md` is the one file that knows current state. Edit it in the same change that
+  makes it wrong.
+
 ## Handing work over
 
 **Cowork → here.** Change `js/pages/markets.js` and the other upstream-owned files in the

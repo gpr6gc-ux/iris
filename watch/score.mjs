@@ -61,9 +61,19 @@ export function score(e, T = THRESHOLDS) {
   const regime   = e.regime ?? null;
   const bars     = num(e.lookback_bars);
 
-  // The two families that can trigger at all: narrative and price. Without both, nothing else matters.
-  if (velocity === null || move === null) {
+  // Narrative is the only family that can start a setup. Without it there is nothing to score.
+  if (velocity === null) {
     return { stance: STANCE.INSUFFICIENT_DATA, direction: null, reasons, missing, invalidation: null };
+  }
+  // Price unknown — pre-market, weekend, or no session yet. Stocks are EOD-only (no stocks plan),
+  // and the options chain that carries the underlying price only trades 09:30–16:00 ET. A story
+  // with no price yet is exactly the Sunday-night alert: WATCH, re-scored at the open.
+  if (move === null) {
+    const narrativeOn = velocity >= T.narrative_velocity_min;
+    reasons.push({ family: 'narrative', ok: narrativeOn, value: velocity, threshold: T.narrative_velocity_min, unit: '× baseline' });
+    reasons.push({ family: 'price', ok: false, value: null, text: 'no price yet — re-score at the open' });
+    return { stance: narrativeOn ? STANCE.WATCH : STANCE.QUIET, direction: null, reasons, missing, invalidation: null,
+      note: narrativeOn ? 'narrative firing with no price: alert as WATCH, confirm at 09:30 ET' : null };
   }
 
   // Direction is price, never text.

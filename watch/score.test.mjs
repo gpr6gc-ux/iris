@@ -41,9 +41,20 @@ test('direction comes from price, never from text: down move with put flow → C
   assert.equal(r.stance, STANCE.CONFIRMED);
 });
 
-test('missing narrative or price → INSUFFICIENT_DATA, not zero', () => {
+test('missing narrative → INSUFFICIENT_DATA, not zero', () => {
   assert.equal(score({ ...crwd, narrative_velocity: null }).stance, STANCE.INSUFFICIENT_DATA);
-  assert.equal(score({ ...crwd, price_move_pct: undefined }).stance, STANCE.INSUFFICIENT_DATA);
+});
+
+test('the Sunday-night case: narrative firing, no price yet → WATCH with a re-score note, never CONFIRMED', () => {
+  const r = score({ ...crwd, price_move_pct: null });
+  assert.equal(r.stance, STANCE.WATCH);
+  assert.equal(r.direction, null);
+  assert.match(r.note, /confirm at 09:30/);
+  assert.ok(r.missing.includes('price_move_pct'));
+});
+
+test('no narrative and no price → QUIET, not an alert', () => {
+  assert.equal(score({ ...crwd, narrative_velocity: 1.2, price_move_pct: null }).stance, STANCE.QUIET);
 });
 
 test('fewer than 20 bars → technicals marked missing rather than computed on nothing', () => {
