@@ -1,0 +1,257 @@
+{
+  "name": "IRIS — Market: Input Cost Watch",
+  "description": "Monthly on the 16th at 14:00 UTC. Re-pulls the 17 tracked BLS PPI series one at a time (4s apart) from the public v1 GET endpoint, keeps current + prior year monthly observations, and writes them via iris_inv_series p_kind=ppi. Tolerates BLS quota refusal",
+  "active": true,
+  "nodes": [
+    {
+      "name": "Monthly 16th 14:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "monthsInterval": 1,
+              "triggerAtDayOfMonth": 16,
+              "triggerAtHour": 14,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Build BLS Series Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const ids = [\"WPU1017\", \"PCU331110331110\", \"PCU3313--3313--\", \"PCU331420331420\", \"WPU102502\", \"WPU081\", \"WPU066\", \"PCU325211325211\", \"PCU484121484121\", \"PCU482111482111\", \"WPU0543\", \"PCU221122221122\", \"WPU0553\", \"PCU33441-33441-\", \"WPU057303\", \"WPU0561\", \"WPU02\"];\nconst now = new Date();\nconst yNow = now.getUTCFullYear();\nconst yPrev = yNow - 1;\nreturn ids.map(function (id) {\n  const encoded = id.split(\"-\").join(\"%2D\");\n  return { json: { series_id: id, url: \"https://api.bls.gov/publicAPI/v1/timeseries/data/\" + encoded + \"?startyear=\" + yPrev + \"&endyear=\" + yNow, startyear: yPrev, endyear: yNow } };\n});"
+      }
+    },
+    {
+      "name": "Parse PPI Observations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -160
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const meta = {\n  \"WPU1017\": { label: \"PPI: Steel mill products\", industry: \"steel\" },\n  \"PCU331110331110\": { label: \"PPI: Iron and steel mills and ferroalloy manufacturing\", industry: \"steel\" },\n  \"PCU3313--3313--\": { label: \"PPI: Alumina and aluminum production and processing\", industry: \"aluminum\" },\n  \"PCU331420331420\": { label: \"PPI: Copper rolling, drawing, extruding and alloying\", industry: \"copper\" },\n  \"WPU102502\": { label: \"PPI: Copper and brass mill shapes\", industry: \"copper\" },\n  \"WPU081\": { label: \"PPI: Lumber\", industry: \"lumber\" },\n  \"WPU066\": { label: \"PPI: Plastic resins and materials\", industry: \"plastics\" },\n  \"PCU325211325211\": { label: \"PPI: Plastics material and resin manufacturing\", industry: \"plastics\" },\n  \"PCU484121484121\": { label: \"PPI: General freight trucking, long-distance truckload\", industry: \"trucking\" },\n  \"PCU482111482111\": { label: \"PPI: Line-haul railroads\", industry: \"rail\" },\n  \"WPU0543\": { label: \"PPI: Industrial electric power\", industry: \"electricity\" },\n  \"PCU221122221122\": { label: \"PPI: Electric power distribution\", industry: \"electricity\" },\n  \"WPU0553\": { label: \"PPI: Industrial natural gas\", industry: \"natural gas\" },\n  \"PCU33441-33441-\": { label: \"PPI: Semiconductor and other electronic component manufacturing\", industry: \"semiconductors\" },\n  \"WPU057303\": { label: \"PPI: No. 2 diesel fuel\", industry: \"diesel\" },\n  \"WPU0561\": { label: \"PPI: Crude petroleum, domestic production\", industry: \"crude oil\" },\n  \"WPU02\": { label: \"PPI: Processed foods and feeds\", industry: \"food\" }\n};\nconst items = $input.all();\nconst now = new Date();\nconst yNow = now.getUTCFullYear();\nconst yPrev = yNow - 1;\nconst rows = [];\nconst seriesOk = [];\nconst seriesFailed = [];\nfor (let i = 0; i < items.length; i++) {\n  const j = items[i].json;\n  const b = j.body;\n  if (!b || typeof b !== \"object\") { seriesFailed.push(\"item\" + i + \":no-json-body\"); continue; }\n  if (b.status !== \"REQUEST_SUCCEEDED\") {\n    let why = b.status ? b.status : \"unknown\";\n    if (b.message && b.message.length) { why = why + \" / \" + b.message[0]; }\n    seriesFailed.push(\"item\" + i + \":\" + why);\n    continue;\n  }\n  const res = b.Results;\n  if (!res || !res.series || !res.series.length) { seriesFailed.push(\"item\" + i + \":no-series\"); continue; }\n  for (let s = 0; s < res.series.length; s++) {\n    const ser = res.series[s];\n    const sid = ser.seriesID;\n    const m = meta[sid];\n    if (!m) { seriesFailed.push(String(sid) + \":unmapped\"); continue; }\n    const data = ser.data || [];\n    let kept = 0;\n    for (let k = 0; k < data.length; k++) {\n      const p = data[k];\n      const per = p.period ? String(p.period) : \"\";\n      if (per.charAt(0) !== \"M\" || per === \"M13\") { continue; }\n      const yr = Number(p.year);\n      if (yr !== yNow && yr !== yPrev) { continue; }\n      const val = Number(p.value);\n      if (!isFinite(val)) { continue; }\n      rows.push({ series_id: sid, period: String(p.year) + \"-\" + per.substring(1) + \"-01\", value: val, label: m.label, industry: m.industry });\n      kept = kept + 1;\n    }\n    if (kept > 0) { seriesOk.push(sid); } else { seriesFailed.push(sid + \":no-usable-observations\"); }\n  }\n}\nreturn [{ json: { body: { p_token: \"<<IRIS_TOKEN>>\", p_kind: \"ppi\", p_rows: rows }, rowCount: rows.length, seriesRequested: 17, seriesOk: seriesOk, seriesFailed: seriesFailed } }];"
+      }
+    },
+    {
+      "name": "Write PPI Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        -160
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssuikijiaulfhfxzwrgu.supabase.co/rest/v1/rpc/iris_inv_series",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<<REDACTED>>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <<REDACTED>>"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      }
+    },
+    {
+      "name": "Fetch BLS Series",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        160
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "IRIS Research greyson@mccourtai.com"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 45000
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Pause 4 Seconds",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        160
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 4,
+        "unit": "seconds"
+      }
+    },
+    {
+      "name": "One Series At A Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "batchSize": 1
+      }
+    },
+    {
+      "name": "Sticky Note 2d1feaca",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        170,
+        -210
+      ],
+      "parameters": {
+        "content": "## BLS PPI, one series at a time\nThe anonymous BLS quota is small and shared per IP, so the 17 series go through a real loop with a 4 second pause between calls rather than 17 concurrent requests.\nPCU ids keep their literal dashes - they are percent-encoded as %2D in the path, never stripped.\nBLS answers HTTP 200 even when it refuses: status REQUEST_NOT_PROCESSED. Those are recorded in seriesFailed and skipped, so a throttled month writes a partial set instead of crashing.\nSeries id comes back from the response itself, so labels cannot be attached to the wrong series. M13 (annual average) rows are dropped; only the current and prior year are kept.",
+        "color": 6,
+        "width": 960,
+        "height": 520
+      }
+    }
+  ],
+  "connections": {
+    "Monthly 16th 14:00 UTC": {
+      "main": [
+        [
+          {
+            "node": "Build BLS Series Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build BLS Series Requests": {
+      "main": [
+        [
+          {
+            "node": "One Series At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse PPI Observations": {
+      "main": [
+        [
+          {
+            "node": "Write PPI Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch BLS Series": {
+      "main": [
+        [
+          {
+            "node": "Pause 4 Seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pause 4 Seconds": {
+      "main": [
+        [
+          {
+            "node": "One Series At A Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One Series At A Time": {
+      "main": [
+        [
+          {
+            "node": "Parse PPI Observations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch BLS Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "UTC",
+    "executionTimeout": 900
+  }
+}

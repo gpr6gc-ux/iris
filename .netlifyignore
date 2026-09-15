@@ -1,0 +1,6 @@
+node_modules
+*.mjs
+package.json
+package-lock.json
+.netlify
+docs/

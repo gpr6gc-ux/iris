@@ -1,0 +1,181 @@
+{
+  "name": "IRIS — Scout: Markets",
+  "description": "Nightly keyless sweep of official sources (FINRA short volume, EDGAR Form 4, CBOE chain -> SPY GEX). Nasdaq earnings + Yahoo rotation retired 2026-09-05 (ToS). analyst-invest scores; regime brief -> memory; opportunities >=65 file as claims.",
+  "active": true,
+  "nodes": [
+    {
+      "name": "Nightly 21:15 ET",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        304
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Collect Official Feeds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const UA_SEC = 'IRIS Research greyson@mccourtai.com';\nconst UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';\nconst SB = $vars.IRIS_SUPABASE_URL; const KEY = $vars.IRIS_SUPABASE_SERVICE_ROLE_KEY;\nconst hIris = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };\nconst rpcIris = (fn, body) => this.helpers.httpRequest({ method:'POST', url: SB + '/rest/v1/rpc/' + fn, headers: hIris, json: true, timeout: 15000, body });\nconst out = { collected_at: new Date().toISOString(), sources: {} };\nconst get = (url, headers, asJson) => this.helpers.httpRequest({ method: 'GET', url, headers: headers || {}, timeout: 25000, json: !!asJson });\n\nlet TASK = null, PROMPT = null;\ntry { TASK = await rpcIris('iris_task_start', { p_agent:'analyst-invest', p_kind:'hunt', p_title:'Nightly market sweep ' + new Date().toISOString().slice(0,10), p_org_slug:'greyson-personal', p_max_classification:'client_confidential', p_input:{}, p_dedupe_key:null }); } catch(e){ out.task_note = 'task_start failed: ' + String(e.message).slice(0,80); }\ntry { PROMPT = await rpcIris('iris_get_prompt', { p_slug: 'analyst-invest.score' }); } catch(e){}\nif (!PROMPT) PROMPT = 'Registry unavailable. Score conservatively; file nothing above 60; every opportunity needs an observable invalidation.';\n\n// 1) FINRA daily short volume\ntry {\n  const d = new Date(); const ymd = d.toISOString().slice(0,10).replace(/-/g,'');\n  const txt = await get('https://cdn.finra.org/equity/regsho/daily/CNMSshvol' + ymd + '.txt');\n  const lines = String(txt).trim().split('\\n'); lines.shift(); lines.pop();\n  let sv=0, tv=0; const n=lines.length;\n  for (const l of lines){ const p=l.split('|'); sv+=parseFloat(p[2])||0; tv+=parseFloat(p[4])||0; }\n  out.sources.finra_short_volume = { status:'ok', symbols:n, market_short_ratio: tv>0? +(sv/tv).toFixed(3):null, note:'short volume ratio is mostly MM plumbing; only multi-week deviations matter' };\n} catch(e){ out.sources.finra_short_volume = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 2) EDGAR Form 4 current filings\ntry {\n  const atom = await get('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&count=100&output=atom', { 'User-Agent': UA_SEC });\n  const titles = [...String(atom).matchAll(/<title>4(?:\\/A)? - ([^<]+) \\((\\d{7,10})\\) \\((Issuer|Reporting)\\)<\\/title>/g)];\n  const issuers = {};\n  for (const m of titles){ if (m[3]==='Issuer'){ issuers[m[1]] = (issuers[m[1]]||0)+1; } }\n  const active = Object.entries(issuers).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([name,filings])=>({name, filings}));\n  out.sources.edgar_form4 = { status:'ok', recent_filings: titles.filter(t=>t[3]==='Issuer').length, most_active_issuers: active, note:'counts only — transaction codes not parsed; attention flags at most' };\n} catch(e){ out.sources.edgar_form4 = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 3) Nasdaq earnings — next 2 days\ntry {\n  const days=[];\n  for (let i=1;i<=2;i++){ const dt=new Date(Date.now()+i*86400000).toISOString().slice(0,10); days.push(dt); }\n  const rows=[];\n  for (const dt of days){\n    const j = await get('https://api.nasdaq.com/api/calendar/earnings?date='+dt, { 'User-Agent': UA_BROWSER, 'Accept':'application/json, text/plain, */*', 'Origin':'https://www.nasdaq.com', 'Referer':'https://www.nasdaq.com/' }, true);\n    const rs = (j && j.data && j.data.rows) ? j.data.rows : [];\n    for (const r of rs){ const mc=parseFloat(String(r.marketCap||'').replace(/[$,]/g,''))||0; rows.push({date:dt, symbol:r.symbol, time:r.time, mktcap_b:+(mc/1e9).toFixed(1)}); }\n  }\n  rows.sort((a,b)=>b.mktcap_b-a.mktcap_b);\n  out.sources.earnings_next_48h = { status:'ok', count: rows.length, largest: rows.slice(0,15) };\n} catch(e){ out.sources.earnings_next_48h = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 4) Sector rotation vs SPY\ntry {\n  const syms=['SPY','XLK','XLE','XLF','XLV','XLI','XLP','XLY','XLU','XLB','XLRE','XLC'];\n  const perf={};\n  for (const s of syms){\n    const j = await get('https://query1.finance.yahoo.com/v8/finance/chart/'+s+'?range=1mo&interval=1d', { 'User-Agent': UA_BROWSER }, true);\n    const q=j.chart.result[0].indicators.quote[0].close.filter(x=>x!=null);\n    if (q.length>=6){ perf[s]={ d5:+((q[q.length-1]/q[q.length-6]-1)*100).toFixed(2), d21:+((q[q.length-1]/q[0]-1)*100).toFixed(2), px:+q[q.length-1].toFixed(2) }; }\n  }\n  const spy=perf.SPY||{d21:0,d5:0};\n  const rotation=Object.entries(perf).filter(([s])=>s!=='SPY').map(([s,p])=>({sector:s, rel_21d:+(p.d21-spy.d21).toFixed(2), rel_5d:+(p.d5-spy.d5).toFixed(2)})).sort((a,b)=>b.rel_21d-a.rel_21d);\n  out.sources.rotation = { status:'ok', spy: spy, leaders: rotation.slice(0,3), laggards: rotation.slice(-3) };\n} catch(e){ out.sources.rotation = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 5) GEX from CBOE free chain\ntry {\n  const j = await get('https://cdn.cboe.com/api/global/delayed_quotes/options/SPY.json', { 'User-Agent': UA_BROWSER }, true);\n  const spot = j.data.current_price;\n  const strikes = {};\n  let net = 0;\n  for (const o of j.data.options){\n    const sym = o.option || '';\n    const cp = sym.charAt(sym.length-9);\n    const strike = parseInt(sym.slice(-8),10)/1000;\n    if (!strike || (cp!=='C' && cp!=='P')) continue;\n    const g = (o.gamma||0) * (o.open_interest||0) * 100 * spot * spot * 0.01;\n    const signed = cp==='C' ? g : -g;\n    net += signed;\n    if (Math.abs(strike-spot)/spot <= 0.12){ strikes[strike] = (strikes[strike]||0) + signed; }\n  }\n  const entries = Object.entries(strikes).map(([k,v])=>({strike:+k, gex_m:+(v/1e6).toFixed(1)}));\n  const above = entries.filter(e=>e.strike>spot).sort((a,b)=>b.gex_m-a.gex_m);\n  const below = entries.filter(e=>e.strike<spot).sort((a,b)=>a.gex_m-b.gex_m);\n  out.sources.gex_spy = { status:'ok', spot:+spot.toFixed(2), net_gex_bn:+(net/1e9).toFixed(2), regime: net>0?'positive (mean-reverting, pinning)':'NEGATIVE (amplifying)', call_wall: above[0]||null, put_wall: below[0]||null, note:'naive dealer-sign model, OI-based (0DTE invisible)' };\n} catch(e){ out.sources.gex_spy = { status:'skip', why:String(e.message).slice(0,80) }; }\n\nif (TASK){ try { await rpcIris('iris_task_event', { p_task_id: TASK, p_event: 'collected', p_detail: { statuses: Object.fromEntries(Object.entries(out.sources).map(([k,v])=>[k, v.status])), prompt_live: PROMPT.length > 200 } }); } catch(e){} }\nout._task_id = TASK;\nout._prompt = PROMPT;\nreturn [{ json: out }];",
+        "parameters": {
+          "jsCode": "const UA_SEC = 'IRIS Research greyson@mccourtai.com';\nconst UA_BROWSER = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';\nconst SB = $vars.IRIS_SUPABASE_URL; const KEY = $vars.IRIS_SUPABASE_SERVICE_ROLE_KEY;\nconst hIris = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };\nconst rpcIris = (fn, body) => this.helpers.httpRequest({ method:'POST', url: SB + '/rest/v1/rpc/' + fn, headers: hIris, json: true, timeout: 15000, body });\nconst out = { collected_at: new Date().toISOString(), sources: {} };\nconst get = (url, headers, asJson) => this.helpers.httpRequest({ method: 'GET', url, headers: headers || {}, timeout: 25000, json: !!asJson });\n\nlet TASK = null, PROMPT = null;\ntry { TASK = await rpcIris('iris_task_start', { p_agent:'analyst-invest', p_kind:'hunt', p_title:'Nightly market sweep ' + new Date().toISOString().slice(0,10), p_org_slug:'greyson-personal', p_max_classification:'client_confidential', p_input:{}, p_dedupe_key:null }); } catch(e){ out.task_note = 'task_start failed: ' + String(e.message).slice(0,80); }\ntry { PROMPT = await rpcIris('iris_get_prompt', { p_slug: 'analyst-invest.score' }); } catch(e){}\nif (!PROMPT) PROMPT = 'Registry unavailable. Score conservatively; file nothing above 60; every opportunity needs an observable invalidation.';\n\n// 1) FINRA daily short volume (official, keyless)\ntry {\n  const d = new Date(); const ymd = d.toISOString().slice(0,10).replace(/-/g,'');\n  const txt = await get('https://cdn.finra.org/equity/regsho/daily/CNMSshvol' + ymd + '.txt');\n  const lines = String(txt).trim().split('\\n'); lines.shift(); lines.pop();\n  let sv=0, tv=0; const n=lines.length;\n  for (const l of lines){ const p=l.split('|'); sv+=parseFloat(p[2])||0; tv+=parseFloat(p[4])||0; }\n  out.sources.finra_short_volume = { status:'ok', symbols:n, market_short_ratio: tv>0? +(sv/tv).toFixed(3):null, note:'short volume ratio is mostly MM plumbing; only multi-week deviations matter' };\n} catch(e){ out.sources.finra_short_volume = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 2) EDGAR Form 4 current filings (official SEC)\ntry {\n  const atom = await get('https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&count=100&output=atom', { 'User-Agent': UA_SEC });\n  const titles = [...String(atom).matchAll(/<title>4(?:\\/A)? - ([^<]+) \\((\\d{7,10})\\) \\((Issuer|Reporting)\\)<\\/title>/g)];\n  const issuers = {};\n  for (const m of titles){ if (m[3]==='Issuer'){ issuers[m[1]] = (issuers[m[1]]||0)+1; } }\n  const active = Object.entries(issuers).sort((a,b)=>b[1]-a[1]).slice(0,12).map(([name,filings])=>({name, filings}));\n  out.sources.edgar_form4 = { status:'ok', recent_filings: titles.filter(t=>t[3]==='Issuer').length, most_active_issuers: active, note:'counts only — transaction codes not parsed; attention flags at most' };\n} catch(e){ out.sources.edgar_form4 = { status:'skip', why:String(e.message).slice(0,80) }; }\n\n// 3) Earnings calendar — RETIRED 2026-09-05 (audit v2 P0-12): api.nasdaq.com is an undocumented internal endpoint reached with spoofed browser Origin/Referer headers (ToS). Actual earnings releases are captured by the SEC 8-K catalyst feed instead; forward calendar returns when a licensed calendar source is added.\nout.sources.earnings_next_48h = { status:'retired', why:'Nasdaq internal API is ToS-restricted; earnings releases come from the SEC 8-K catalyst feed. No forward calendar until a licensed source is added.' };\n\n// 4) Sector rotation vs SPY — RETIRED 2026-09-05 (audit v2 P0-12): query1.finance.yahoo.com is prohibited by Yahoo ToS (same reason the Yahoo price feeds were retired). Returns once the licensed price source (Massive) is live.\nout.sources.rotation = { status:'retired', why:'Yahoo chart API is ToS-prohibited; sector rotation returns when the licensed price feed (Massive) is active.' };\n\n// 5) GEX from CBOE free delayed chain (public)\ntry {\n  const j = await get('https://cdn.cboe.com/api/global/delayed_quotes/options/SPY.json', { 'User-Agent': UA_BROWSER }, true);\n  const spot = j.data.current_price;\n  const strikes = {};\n  let net = 0;\n  for (const o of j.data.options){\n    const sym = o.option || '';\n    const cp = sym.charAt(sym.length-9);\n    const strike = parseInt(sym.slice(-8),10)/1000;\n    if (!strike || (cp!=='C' && cp!=='P')) continue;\n    const g = (o.gamma||0) * (o.open_interest||0) * 100 * spot * spot * 0.01;\n    const signed = cp==='C' ? g : -g;\n    net += signed;\n    if (Math.abs(strike-spot)/spot <= 0.12){ strikes[strike] = (strikes[strike]||0) + signed; }\n  }\n  const entries = Object.entries(strikes).map(([k,v])=>({strike:+k, gex_m:+(v/1e6).toFixed(1)}));\n  const above = entries.filter(e=>e.strike>spot).sort((a,b)=>b.gex_m-a.gex_m);\n  const below = entries.filter(e=>e.strike<spot).sort((a,b)=>a.gex_m-b.gex_m);\n  out.sources.gex_spy = { status:'ok', spot:+spot.toFixed(2), net_gex_bn:+(net/1e9).toFixed(2), regime: net>0?'positive (mean-reverting, pinning)':'NEGATIVE (amplifying)', call_wall: above[0]||null, put_wall: below[0]||null, note:'naive dealer-sign model, OI-based (0DTE invisible)' };\n} catch(e){ out.sources.gex_spy = { status:'skip', why:String(e.message).slice(0,80) }; }\n\nif (TASK){ try { await rpcIris('iris_task_event', { p_task_id: TASK, p_event: 'collected', p_detail: { statuses: Object.fromEntries(Object.entries(out.sources).map(([k,v])=>[k, v.status])), prompt_live: PROMPT.length > 200 } }); } catch(e){} }\nout._task_id = TASK;\nout._prompt = PROMPT;\nreturn [{ json: out }];"
+        }
+      }
+    },
+    {
+      "name": "Analyst Brief",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        768,
+        304
+      ],
+      "parameters": {
+        "promptType": "define",
+        "text": "=Tonight's official-source market data (any source marked skip was unavailable — say so rather than inventing): {{ JSON.stringify($input.first().json) }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are analyst-invest, a skeptical swing-horizon (2-12 week) market analyst for one person. Your scoring doctrine, pulled live from the version-controlled prompt registry at run time:\n\n{{ $('Collect Official Feeds').first().json._prompt }}\n\nStanding rules that never change: CHECK the earnings list before scoring anything. Insider filing COUNTS without transaction codes are attention flags at most. GEX regime is timing context, never a thesis. Most nights produce ZERO opportunities >=65 — an empty list is the honest default. Every opportunity needs an OBSERVABLE invalidation condition. This is research for human review — never instructions to trade."
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "name": "Brief Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        832,
+        528
+      ],
+      "parameters": {
+        "jsonSchemaExample": "{ \"regime_brief\": \"One tight paragraph: GEX regime and walls, rotation leaders/laggards, notable insider-filing clusters, earnings landmines next 48h, and what it means for the week.\", \"opportunities\": [ { \"symbol\": \"XYZ\", \"score\": 68, \"reason\": \"one line\", \"invalidation\": \"observable condition\", \"signal_source\": \"which feed produced this\" } ] }"
+      }
+    },
+    {
+      "name": "File into IRIS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        304
+      ],
+      "parameters": {
+        "jsCode": "const SB = $vars.IRIS_SUPABASE_URL;\nconst KEY = $vars.IRIS_SUPABASE_SERVICE_ROLE_KEY;\nif (!SB || !KEY) throw new Error('IRIS vars missing');\nconst h = { apikey: KEY, Authorization: 'Bearer ' + KEY, 'Content-Type': 'application/json' };\nconst rpc = (fn, body) => this.helpers.httpRequest({ method:'POST', url: SB + '/rest/v1/rpc/' + fn, headers: h, json: true, timeout: 20000, body });\nconst first = $input.first().json || {};\nconst o = first.output || first;\nconst brief = o.regime_brief || '';\nconst opps = Array.isArray(o.opportunities) ? o.opportunities : [];\nconst today = new Date().toISOString().slice(0,10);\nlet taskId = null;\ntry { taskId = $('Collect Official Feeds').first().json._task_id || null; } catch(e){}\nlet ingested = null;\nif (brief && brief.length > 40) {\n  ingested = await rpc('iris_ingest_document', { p_org_slug: 'greyson-personal', p_title: 'Market brief ' + today, p_body: brief, p_kind: 'note', p_classification: 'client_confidential', p_uri: null, p_metadata: { kind: 'market_brief', agent: 'analyst-invest' }, p_workflow: 'scout-markets' });\n}\nconst filed = [];\nfor (const op of opps) {\n  if (!op || typeof op.score !== 'number' || op.score < 65) continue;\n  const id = await rpc('iris_file_claim', { p_agent: 'analyst-invest', p_kind: 'lead', p_statement: '[' + op.score + '] ' + String(op.symbol||'?') + ' — ' + String(op.reason||'').slice(0,120), p_detail: 'Invalidation: ' + (op.invalidation||'?') + '\\nSignal: ' + (op.signal_source||'?'), p_confidence: Math.min(0.99, op.score/100), p_org_slug: 'greyson-personal' });\n  filed.push({ claim_id: id, symbol: op.symbol, score: op.score });\n}\nif (taskId) { try { await rpc('iris_task_finish', { p_task_id: taskId, p_status: 'done', p_result: { brief_ingested: !!ingested, opportunities_reviewed: opps.length, claims_filed: filed.length }, p_error: null }); } catch(e){} }\nreturn [{ json: { task_id: taskId, brief_ingested: !!ingested, opportunities_reviewed: opps.length, claims_filed: filed.length, filed } }];"
+      }
+    },
+    {
+      "name": "Sticky Note bc23ae10",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        -160
+      ],
+      "parameters": {
+        "content": "## IRIS — Scout: Markets\n\nNightly 21:15 ET sweep of OFFICIAL primary sources, all keyless: FINRA short volume, SEC EDGAR Form 4 activity, Nasdaq earnings (next 48h landmines), Yahoo sector rotation vs SPY, and full SPY GEX computed from CBOE's free chain (greeks + OI) — net gamma regime, call wall, put wall.\n\nanalyst-invest scores per its cited doctrine (insider-purchase asymmetry, short-volume-vs-interest distinction, hard disqualifiers). The nightly regime brief lands in personal memory; opportunities >=65 file as CLAIMS in the board inbox. Research and alerts only — nothing here ever places an order.\n\nCost: 1 execution + 1 model call per night.",
+        "height": 420,
+        "width": 1240,
+        "color": 3,
+        "parameters": {
+          "content": "## IRIS — Scout: Markets\n\nNightly 21:15 ET sweep of OFFICIAL, keyless primary sources: FINRA short volume, SEC EDGAR Form 4 activity, and full SPY GEX computed from CBOE's free delayed chain (greeks + OI) — net gamma regime, call wall, put wall.\n\nRETIRED 2026-09-05 (audit v2, ToS): Nasdaq earnings (api.nasdaq.com internal endpoint) and Yahoo sector rotation (query1.finance.yahoo.com). Earnings now come from the SEC 8-K catalyst feed; sector rotation returns once the licensed price feed (Massive) is live. Both show status:'retired' and the analyst says so rather than inventing.\n\nanalyst-invest scores per its cited doctrine. The nightly regime brief lands in personal memory; opportunities >=65 file as CLAIMS in the board inbox. Research and alerts only — nothing here ever places an order.\n\nCost: 1 execution + 1 model call per night."
+        }
+      }
+    },
+    {
+      "name": "Analyst Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        528
+      ],
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-haiku-4-5-20251001",
+          "cachedResultName": "Claude Haiku 4.5"
+        },
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Nightly 21:15 ET": {
+      "main": [
+        [
+          {
+            "node": "Collect Official Feeds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Official Feeds": {
+      "main": [
+        [
+          {
+            "node": "Analyst Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst Brief": {
+      "main": [
+        [
+          {
+            "node": "File into IRIS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brief Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Analyst Brief",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyst Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyst Brief",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate"
+  }
+}

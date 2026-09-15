@@ -1,0 +1,315 @@
+{
+  "name": "IRIS - Investing: EDGAR Fundamentals Feed",
+  "description": "Rate-limit-safe SEC EDGAR companyfacts feed. Fills fundamentals for securities missing coverage: fetches XBRL facts (identity UA header + throttle) into inv.facts, computes annual-basis fundamentals into inv.fundamentals. Nightly + manual. Zero regression",
+  "active": true,
+  "nodes": [
+    {
+      "name": "Run now",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "name": "Get CIKs Needing Facts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssuikijiaulfhfxzwrgu.supabase.co/rest/v1/rpc/iris_inv_ciks_needing_facts",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<<REDACTED>>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <<REDACTED>>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "{\"p_token\":\"<<IRIS_TOKEN>>\",\"p_limit\":20}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "name": "Split CIKs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const d=$input.first().json;const ciks=(d&&d.ciks)||[];function pad(n){var s=String(n);while(s.length<10){s='0'+s;}return s;}return ciks.map(function(c){return {json:{cik:Number(c),url:'https://data.sec.gov/api/xbrl/companyfacts/CIK'+pad(c)+'.json'}};});"
+      }
+    },
+    {
+      "name": "EDGAR CompanyFacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        96
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "IRIS Research greyson@mccourtai.com"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000,
+          "batching": {
+            "batch": {
+              "batchSize": 4,
+              "batchInterval": 1100
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": true
+            }
+          }
+        },
+        "parameters": {
+          "options": {
+            "batching": {
+              "batch": {
+                "batchSize": 2,
+                "batchInterval": 900
+              }
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Extract Fundamentals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const items=$input.all();\nconst CUT='2022-01-01';\nconst FRESH=Date.now()-400*86400000;\nfunction unitArr(j,ns,name,unit){try{const c=j.facts[ns][name].units[unit];return Array.isArray(c)?c:[];}catch(e){return [];}}\nfunction annualNewest(j,ns,names,unit){var best=null;for(var n=0;n<names.length;n++){var a=unitArr(j,ns,names[n],unit);for(var i=0;i<a.length;i++){var e=a[i];if(!e.start||!e.end)continue;var days=(new Date(e.end)-new Date(e.start))/86400000;if(days>=340&&days<=380){if(!best||new Date(e.end)>new Date(best.end))best=e;}}}return best;}\nfunction latestInstant(entries){var best=null;for(var i=0;i<entries.length;i++){var e=entries[i];var end=e.end||e.instant;if(!end)continue;if(!best||new Date(end)>new Date(best.end||best.instant))best=e;}return best;}\nvar REV=['Revenues','RevenueFromContractWithCustomerIncludingAssessedTax','RevenueFromContractWithCustomerExcludingAssessedTax','SalesRevenueNet','RevenuesNetOfInterestExpense'];\nvar rawDefs=[['us-gaap','RevenueFromContractWithCustomerExcludingAssessedTax','USD'],['us-gaap','Revenues','USD'],['us-gaap','SalesRevenueNet','USD'],['us-gaap','RevenuesNetOfInterestExpense','USD'],['us-gaap','NetIncomeLoss','USD'],['us-gaap','StockholdersEquity','USD'],['us-gaap','Assets','USD'],['us-gaap','Liabilities','USD'],['us-gaap','CashAndCashEquivalentsAtCarryingValue','USD'],['us-gaap','LongTermDebtNoncurrent','USD'],['dei','EntityCommonStockSharesOutstanding','shares']];\nvar out=[];\nfor(var k=0;k<items.length;k++){\n  var it=items[k];var j=(it.json&&it.json.facts)?it.json:((it.json&&it.json.body&&it.json.body.facts)?it.json.body:null);\n  if(!j||!j.facts)continue;\n  var cik=Number(j.cik);if(!cik)continue;\n  var facts=[];\n  for(var d=0;d<rawDefs.length;d++){var a=unitArr(j,rawDefs[d][0],rawDefs[d][1],rawDefs[d][2]);for(var m=0;m<a.length;m++){var e=a[m];var end=e.end||e.instant||null;var start=e.start||end;if(e.filed&&e.filed<CUT)continue;if(end==null||start==null||e.val==null)continue;facts.push({concept:rawDefs[d][1],unit:rawDefs[d][2],start:start,end:end,val:e.val,form:e.form||null,filed:e.filed||null,accn:e.accn||null});}}\n  var rev=annualNewest(j,'us-gaap',REV,'USD');\n  var ni=annualNewest(j,'us-gaap',['NetIncomeLoss','ProfitLoss'],'USD');\n  var eq=latestInstant(unitArr(j,'us-gaap','StockholdersEquity','USD'));\n  var as=latestInstant(unitArr(j,'us-gaap','Assets','USD'));\n  var li=latestInstant(unitArr(j,'us-gaap','Liabilities','USD'));\n  var ca=latestInstant(unitArr(j,'us-gaap','CashAndCashEquivalentsAtCarryingValue','USD'));\n  var de=latestInstant(unitArr(j,'us-gaap','LongTermDebtNoncurrent','USD'));\n  var sh=latestInstant(unitArr(j,'dei','EntityCommonStockSharesOutstanding','shares'));\n  if(!sh)sh=latestInstant(unitArr(j,'us-gaap','CommonStockSharesOutstanding','shares'));\n  var freshRev=(rev&&(new Date(rev.end).getTime()>FRESH))?rev:null;\n  var fund=freshRev?{cik:cik,revenue_ttm:freshRev.val,revenue_asof:freshRev.end,revenue_basis:'annual',net_income_ttm:(ni?ni.val:null),net_income_asof:(ni?ni.end:null),net_income_basis:'annual',equity:(eq?eq.val:null),equity_end:(eq?(eq.end||eq.instant):null),shares:(sh?sh.val:null),shares_asof:(sh?(sh.end||sh.instant):null),shares_src:(sh?'edgar':null),assets:(as?as.val:null),liabilities:(li?li.val:null),cash:(ca?ca.val:null),debt:(de?de.val:null),currency:'USD',note:'edgar-feed annual'}:null;\n  out.push({json:{cik:cik,facts:facts,fund:fund,fact_n:facts.length,has_fund:!!fund}});\n}\nreturn out;"
+      }
+    },
+    {
+      "name": "Store Raw Facts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssuikijiaulfhfxzwrgu.supabase.co/rest/v1/rpc/iris_inv_facts",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<<REDACTED>>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <<REDACTED>>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:\"<<IRIS_TOKEN>>\",p_cik:$json.cik,p_rows:$json.facts}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "name": "Store Fundamentals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1344,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://ssuikijiaulfhfxzwrgu.supabase.co/rest/v1/rpc/iris_inv_fundamentals",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "<<REDACTED>>"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer <<REDACTED>>"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({p_token:\"<<IRIS_TOKEN>>\",p_rows:($('Extract Fundamentals').item.json.fund?[$('Extract Fundamentals').item.json.fund]:[])}) }}",
+        "options": {
+          "timeout": 20000
+        }
+      }
+    },
+    {
+      "name": "Nightly fundamentals refresh",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 4,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Run now": {
+      "main": [
+        [
+          {
+            "node": "Get CIKs Needing Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get CIKs Needing Facts": {
+      "main": [
+        [
+          {
+            "node": "Split CIKs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split CIKs": {
+      "main": [
+        [
+          {
+            "node": "EDGAR CompanyFacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EDGAR CompanyFacts": {
+      "main": [
+        [
+          {
+            "node": "Extract Fundamentals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Fundamentals": {
+      "main": [
+        [
+          {
+            "node": "Store Raw Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Raw Facts": {
+      "main": [
+        [
+          {
+            "node": "Store Fundamentals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Nightly fundamentals refresh": {
+      "main": [
+        [
+          {
+            "node": "Get CIKs Needing Facts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  }
+}

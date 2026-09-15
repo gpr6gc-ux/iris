@@ -1,0 +1,42 @@
+# IRIS Command 5.0 — static site, no build step.
+[build]
+  publish = "."
+
+# Security headers for every path. CSP: scripts only from this origin (supabase-js is vendored) and cdnjs (Leaflet, Estate
+# page only); connections only to Supabase (REST + Realtime); OSM tiles as images; Google Fonts; never framed.
+# Rules below are kept non-overlapping per header so Netlify never has to merge two Cache-Control values.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://tile.openstreetmap.org; img-src 'self' data: https://*.tile.openstreetmap.org https://tile.openstreetmap.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src https://fonts.gstatic.com; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Cross-Origin-Opener-Policy = "same-origin"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
+  for = "/design/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=300, must-revalidate"
+
+# Hash router: every path resolves to the app shell (deep links pasted without the hash still open the app).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
