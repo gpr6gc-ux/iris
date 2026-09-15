@@ -1,0 +1,51 @@
+name: verify
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Momentum watch — scorer and flow layer
+        run: node --test watch/*.test.mjs
+
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Registry files parse and carry required keys
+        run: |
+          pip install -q pyyaml
+          python3 - <<'PY'
+          import yaml, sys
+          p = yaml.safe_load(open('registry/projects.yaml'))
+          a = yaml.safe_load(open('registry/agents.yaml'))
+          u = yaml.safe_load(open('registry/universe.yaml'))
+          s = yaml.safe_load(open('registry/sources.yaml'))
+          for x in p['projects']:
+              for k in ('key','name','status'): assert k in x, f"projects.yaml: {x} missing {k}"
+          keys = [x['key'] for x in p['projects']]; assert len(keys) == len(set(keys)), 'duplicate project key'
+          syms = [x['symbol'] for x in u['universe']]; assert len(syms) == len(set(syms)), 'duplicate symbol in universe'
+          assert s['x_accounts'], 'sources.yaml has no x_accounts'
+          print(f"ok: {len(p['projects'])} projects, {len(a['agents'])} agents, {len(syms)} names, {sum(len(v) for v in s['x_accounts'].values())} accounts")
+          PY
+
+  command-center:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Command center — syntax of every module, and the publish allowlist
+        working-directory: apps/command
+        run: |
+          find js -name '*.js' -not -path 'js/vendor/*' -print0 | xargs -0 -n1 node --check
+          test -x build-site.sh && ./build-site.sh && ! find dist -name '*.sql' -o -name '*.md' | grep -q . && echo "publish allowlist holds"
