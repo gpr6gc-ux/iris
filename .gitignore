@@ -19,3 +19,6 @@ Thumbs.db
 
 # sidecar node deps (the station installs `ws` locally when a live key is configured)
 sidecar/node_modules/
+
+# build output (assembled by build-site.sh)
+dist/

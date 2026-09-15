@@ -1,6 +1,9 @@
-# IRIS Command 5.0 — static site, no build step.
+# IRIS Command 5.0 — static site. build-site.sh assembles dist/ with ONLY the web assets, so backend source
+# (supabase/, sidecar/, investing/, docs/, tests/, workflows/) is never served from the public web root.
+# publish MUST point at dist, never at ".". .netlifyignore is not honored by Netlify's build system — this is.
 [build]
-  publish = "."
+  command = "bash build-site.sh"
+  publish = "dist"
 
 # Security headers for every path. CSP: scripts only from this origin (supabase-js is vendored), the hashed inline theme-boot
 # script in index.html (recompute the sha256 if that script changes) and cdnjs (Leaflet, Estate page only); connections only to Supabase (REST + Realtime); OSM tiles as images; Google Fonts; never framed.
